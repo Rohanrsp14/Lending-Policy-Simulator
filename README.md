@@ -15,6 +15,7 @@ Built incrementally via small, sprint-sized PRs rather than one large drop:
 
 - [x] **PR 1 — Data ingestion**: load, filter, clean, and label the raw Lending Club export.
 - [x] **PR 2 — Champion/challenger model + eval harness**: rule-based cutoff vs. trained PD model, time-based split, RAROC on realized outcomes.
+- [x] **PR 2.1 — Volume-matched calibration + expanded risk features**: fixes the reject-inference finding from running PR 2 against real data.
 - [ ] PR 3 — Vintage loss curve + approval/return frontier
 - [ ] PR 4 — Fair-lending parity screen
 - [ ] PR 5 — Streamlit dashboard
@@ -149,3 +150,27 @@ at the boundaries (e.g. zero approvals, tighter cutoff never approves more).
 
 **Out of scope for this PR**: vintage curve, approval/return frontier, fair-lending screen,
 dashboard — those are PR 3+.
+
+### PR 2.1 description (volume-matched calibration + expanded risk features)
+
+**What**: Running PR 2 against the real 708,134-loan dataset surfaced a real finding: a fixed
+FICO cutoff of 660 approved 100% of the held-out test set, because this dataset contains only
+Lending Club's already-accepted loans — the population was already screened by LC's own real
+underwriting before we ever see it (a known credit-modeling limitation called **reject
+inference**, documented in `CLAUDE.md`). This PR fixes the comparison to be meaningful despite
+that: champion and challenger are now both calibrated to the same target approval rate (85%
+by default) on the training population — a swap-set analysis (same volume, different mix)
+rather than an arbitrary absolute threshold. Also adds five real risk features already present
+in the raw data (`revol_util`, `delinq_2yrs`, `open_acc`, `pub_rec`, `inq_last_6mths`) to
+strengthen the challenger model's ranking quality.
+
+**Why**: An arbitrary fixed cutoff either over- or under-states the comparison depending on
+where a given population's score distribution happens to sit — calibrating both policies to
+the same approval volume is the standard real-world "swap set" framing and makes the RAROC
+delta a genuine reflection of selection quality, not an artifact of an arbitrary number.
+
+**Tests**: 4 new tests verifying the calibration functions actually hit their target approval
+rate (within tolerance) and that champion/challenger land on comparable approval volumes when
+both are volume-matched.
+
+**Out of scope for this PR**: still PR 3+ for vintage curve, frontier, fair-lending, dashboard.
