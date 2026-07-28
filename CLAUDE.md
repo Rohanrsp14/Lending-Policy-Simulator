@@ -25,6 +25,19 @@ here should be presented as, or used as, an actual credit decisioning tool.
 - Every derived dataset must be traceable back to this raw source. No synthetic rows are
   ever mixed into the real dataset without an explicit, visible flag.
 
+## PR 2.5: real time-to-default data for the vintage curve
+
+PR 1's own scoping decision (matured, known-outcome loans only) meant every loan in this
+dataset already has a terminal outcome -- but that also meant we had no field capturing
+*when* that outcome occurred, which is required for a genuine vintage loss-emergence curve
+(PR 3). Fixed by adding `last_pymnt_d` (last payment date, a standard Lending Club field) and
+computing `months_on_book = last_pymnt_d - issue_d` in `src/data_loader.py`. For Charged
+Off/Default loans this approximates time-to-default; for Fully Paid loans it's time-to-payoff
+(which can be less than `term_months` if prepaid early). Rows where this comes out negative
+(a data-quality edge case, `last_pymnt_d` predating `issue_d`) are filtered and logged. This
+lets PR 3 build the vintage curve from real per-loan timing rather than reverting to an
+illustrative/synthetic maturation curve.
+
 ## Known finding addressed in PR 2.4: volume-matching isn't the same as RAROC-optimal
 
 Running PR 2.3 against real data surfaced a real, explainable finding: the volume-matched

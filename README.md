@@ -19,6 +19,7 @@ Built incrementally via small, sprint-sized PRs rather than one large drop:
 - [x] **PR 2.2 — Amortized revenue, more features, platform-maturity scope**: fixes 3 limitations found reviewing PR 2.1's real results.
 - [x] **PR 2.3 — RAROC annualization fix**: fixes a real bug (RAROC >100%) surfaced by running PR 2.2 against real data.
 - [x] **PR 2.4 — RAROC-optimized threshold selection**: fixes a real finding — volume-matching isn't the same as RAROC-optimal.
+- [x] **PR 2.5 — Real time-to-default data**: adds last_pymnt_d + months_on_book, needed for a genuine (not synthetic) vintage curve.
 - [ ] PR 3 — Vintage loss curve + approval/return frontier
 - [ ] PR 4 — Fair-lending parity screen
 - [ ] PR 5 — Streamlit dashboard

@@ -61,6 +61,7 @@ REQUIRED_COLUMNS = [
     "verification_status",
     "mort_acc",
     "total_acc",
+    "last_pymnt_d",
 ]
 
 # Lending Club's earliest years (2007-2011) were a small, immature platform
@@ -120,6 +121,21 @@ def _parse_revol_util(revol_util: pd.Series) -> pd.Series:
 def _parse_issue_year(issue_d: pd.Series) -> pd.Series:
     """'Jan-2018' -> 2018 (int). Used only for the platform-maturity scope filter."""
     return pd.to_datetime(issue_d, format="%b-%Y", errors="coerce").dt.year
+
+
+def _compute_months_on_book(issue_d: pd.Series, last_pymnt_d: pd.Series) -> pd.Series:
+    """
+    Months between issue_d and last_pymnt_d -- a real, data-derived proxy for
+    time-to-terminal-event. For Charged Off/Default loans this approximates
+    time-to-default; for Fully Paid loans it's time-to-payoff (which can be
+    less than term_months if the loan was prepaid early). This replaces an
+    earlier design that would have needed a synthetic/illustrative
+    maturation curve -- see CLAUDE.md and README.md (PR 2.5).
+    """
+    issue_dt = pd.to_datetime(issue_d, format="%b-%Y", errors="coerce")
+    last_pymnt_dt = pd.to_datetime(last_pymnt_d, format="%b-%Y", errors="coerce")
+    months = (last_pymnt_dt.dt.year - issue_dt.dt.year) * 12 + (last_pymnt_dt.dt.month - issue_dt.dt.month)
+    return months
 
 
 def _parse_emp_length(emp_length: pd.Series) -> pd.Series:
@@ -190,9 +206,22 @@ def clean_and_scope(df: pd.DataFrame, logger: RunLogger) -> pd.DataFrame:
     df["int_rate_frac"] = _parse_int_rate(df["int_rate"])
     df["emp_length_years"] = _parse_emp_length(df["emp_length"])
     df["revol_util_frac"] = _parse_revol_util(df["revol_util"])
+    df["months_on_book"] = _compute_months_on_book(df["issue_d"], df["last_pymnt_d"])
 
     # Derived label: 1 = defaulted/charged off, 0 = fully paid
     df["defaulted"] = df["loan_status"].isin(BAD_STATUSES).astype(int)
+
+    # Data-quality filter: months_on_book must be non-negative and parseable.
+    # A negative value means last_pymnt_d predates issue_d, which is either a
+    # data error or an edge case (e.g. a payment reversal) -- not usable for
+    # a time-to-event calculation either way.
+    rows_before_months = len(df)
+    df = df[df["months_on_book"].notna() & (df["months_on_book"] >= 0)].copy()
+    logger.log(
+        "filter_invalid_months_on_book",
+        rows_in=rows_before_months,
+        rows_out=len(df),
+    )
 
     # Drop rows where key numeric fields failed to parse or are missing
     rows_before_na = len(df)
