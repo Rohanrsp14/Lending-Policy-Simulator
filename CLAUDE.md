@@ -25,6 +25,22 @@ here should be presented as, or used as, an actual credit decisioning tool.
 - Every derived dataset must be traceable back to this raw source. No synthetic rows are
   ever mixed into the real dataset without an explicit, visible flag.
 
+## Known finding addressed in PR 2.4: volume-matching isn't the same as RAROC-optimal
+
+Running PR 2.3 against real data surfaced a real, explainable finding: the volume-matched
+challenger had a LOWER loss rate than champion but a WORSE RAROC. Root cause (confirmed by
+checking approved-population averages): the PD model's approved set had a lower average
+interest rate, smaller average loan amount, and shorter average term than champion's --
+because Lending Club's own rate assignment already reflects their view of risk, a model
+that reduces default risk will naturally also tend to decline higher-rate (higher-revenue)
+loans. This is not a bug -- it's a real illustration that optimizing a ranking metric (PD)
+is not the same as optimizing the actual economic objective (RAROC).
+
+**Fix/addition**: `src/models.py::sweep_pd_thresholds` and `calibrate_pd_threshold_for_raroc`
+sweep candidate PD thresholds on the TRAINING set only (no leakage) and select the one that
+directly maximizes RAROC, rather than matching a target approval volume. `scripts/run_evaluation.py`
+now shows all three: champion, volume-matched challenger, and RAROC-optimized challenger.
+
 ## Known limitations addressed in PR 2.3
 
 - **RAROC annualization bug, found and fixed**: PR 2.2's amortization fix computed
