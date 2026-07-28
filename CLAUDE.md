@@ -25,6 +25,17 @@ here should be presented as, or used as, an actual credit decisioning tool.
 - Every derived dataset must be traceable back to this raw source. No synthetic rows are
   ever mixed into the real dataset without an explicit, visible flag.
 
+## Known limitations addressed in PR 2.3
+
+- **RAROC annualization bug, found and fixed**: PR 2.2's amortization fix computed
+  revenue and loss as full-loan-life totals (e.g. 3-5 years' worth), but `capital` and
+  `opex` remained one-time charges meant to represent an ANNUAL basis. Comparing a
+  multi-year total against a one-year capital base produced RAROC over 100% when run
+  against real data -- a real bug, not a portfolio quirk. Fixed in `src/models.py::compute_raroc`
+  by dividing both revenue and loss by each loan's own term-in-years before summing, so
+  every quantity feeding RAROC is on a consistent annual basis. `test_compute_raroc_is_annualized_not_lifetime_total`
+  is a regression test guarding against this specific class of bug recurring.
+
 ## Known limitations addressed in PR 2.2
 
 - **Revenue is amortized, not flat-multiplied** (`src/models.py::amortized_interest`) --

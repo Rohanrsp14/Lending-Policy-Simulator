@@ -17,6 +17,7 @@ Built incrementally via small, sprint-sized PRs rather than one large drop:
 - [x] **PR 2 — Champion/challenger model + eval harness**: rule-based cutoff vs. trained PD model, time-based split, RAROC on realized outcomes.
 - [x] **PR 2.1 — Volume-matched calibration + expanded risk features**: fixes the reject-inference finding from running PR 2 against real data.
 - [x] **PR 2.2 — Amortized revenue, more features, platform-maturity scope**: fixes 3 limitations found reviewing PR 2.1's real results.
+- [x] **PR 2.3 — RAROC annualization fix**: fixes a real bug (RAROC >100%) surfaced by running PR 2.2 against real data.
 - [ ] PR 3 — Vintage loss curve + approval/return frontier
 - [ ] PR 4 — Fair-lending parity screen
 - [ ] PR 5 — Streamlit dashboard
@@ -204,3 +205,29 @@ uses the amortized figure, and confirms the platform-maturity filter excludes pr
 per-loan time-to-default, which is PR 3's job) and any model-type change (still logistic
 regression, by design — see PR 2's rationale for why this stays a rules-vs-model comparison
 rather than a model-vs-model one).
+
+### PR 2.3 description (RAROC annualization fix — a real bug)
+
+**What**: Running PR 2.2 against the real dataset produced RAROC of 201.5% (champion) and
+154.3% (challenger) — not believable numbers, and a real bug rather than a documented
+limitation. `amortized_interest()` (added in PR 2.2) returns full-loan-life revenue totals
+(3-5 years' worth), but `capital` and `opex` are one-time charges meant to represent an
+*annual* basis — the standard RAROC convention. Comparing a multi-year total against a
+one-year capital base is a unit mismatch, and it's what produced RAROC over 100%.
+
+**Fix**: `compute_raroc` now divides both revenue and realized loss by each loan's own
+term-in-years before summing, putting every quantity feeding RAROC on the same annual basis
+as the capital charge. `loss_rate` in the output remains a simple lifetime figure (unannualized)
+since that's the more intuitive way to read "what fraction of approved balance was lost."
+
+**Why this is worth naming explicitly rather than quietly patching**: this is exactly the kind
+of math error a real risk team's model-validation review would catch before signing off on a
+RAROC number — catching and documenting it here is a stronger interview story than either
+hiding it or never having made it in the first place.
+
+**Tests**: updated the two PR 2.2 revenue/loss tests to expect annualized figures, and added
+`test_compute_raroc_is_annualized_not_lifetime_total` as an explicit regression guard — asserts
+RAROC stays under 100% on the synthetic fixture, so this specific bug class can't silently
+reappear.
+
+**Out of scope for this PR**: still PR 3+ for vintage curve, frontier, fair-lending, dashboard.
