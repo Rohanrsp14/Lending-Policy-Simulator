@@ -9,6 +9,13 @@ screen — deployed as a Streamlit dashboard.
 **This is a portfolio/analytical project, not a production underwriting system.** See
 [CLAUDE.md](CLAUDE.md) for full data provenance and project rules.
 
+**Key finding (read before quoting any RAROC number from this project):** the champion
+(a simple FICO cutoff) has a genuine RAROC-maximizing point; the challenger (a logistic
+regression, AUC 0.64) does not clearly beat it once revenue mix and realistic cost
+assumptions are accounted for — real predictive power did not translate into real
+economic value here. See [docs/MODEL_VALIDATION.md](docs/MODEL_VALIDATION.md) for the
+full independent-style review, including every issue found and fixed along the way.
+
 ## Status
 
 Built incrementally via small, sprint-sized PRs rather than one large drop:
@@ -22,7 +29,11 @@ Built incrementally via small, sprint-sized PRs rather than one large drop:
 - [x] **PR 2.5 — Real time-to-default data**: adds last_pymnt_d + months_on_book, needed for a genuine (not synthetic) vintage curve.
 - [x] **PR 3 — Vintage loss curve + symmetric approval/return frontier**: real time-to-default vintage analysis, plus a frontier that sweeps BOTH policies fairly.
 - [x] **PR 3.1 — Pre-pricing risk model**: removes int_rate_frac as a challenger feature — a real methodological fix found reviewing PR 3's frontier result.
-- [ ] PR 4 — Fair-lending parity screen
+- [x] **Model Validation Report** (`docs/MODEL_VALIDATION.md`): independent-style review of everything built so far — conceptual soundness, discriminatory power, outcomes analysis, a full issue/remediation log, and an explicit not-yet-production-ready verdict.
+- [ ] PR 4 — Fair-lending parity screen (BISG-style, explicitly illustrative given data limitations)
+- [ ] RAROC sensitivity analysis (stress-test the LGD/opex/capital assumptions)
+- [ ] Path to Production doc
+- [ ] PSI drift monitoring
 - [ ] PR 5 — Streamlit dashboard
 - [ ] PR 6 — CI polish, docs, deploy
 
