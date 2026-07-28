@@ -22,6 +22,11 @@ NUMERIC_FEATURES = [
     "term_months",
     "loan_amnt",
     "int_rate_frac",
+    "revol_util_frac",
+    "delinq_2yrs",
+    "open_acc",
+    "pub_rec",
+    "inq_last_6mths",
 ]
 CATEGORICAL_FEATURES = ["purpose"]
 TARGET = "defaulted"
@@ -65,5 +70,9 @@ def prepare_features(df: pd.DataFrame) -> pd.DataFrame:
     if df["emp_length_years"].isna().any():
         median_emp_length = df["emp_length_years"].median()
         df["emp_length_years"] = df["emp_length_years"].fillna(median_emp_length)
+
+    if df["revol_util_frac"].isna().any():
+        median_revol_util = df["revol_util_frac"].median()
+        df["revol_util_frac"] = df["revol_util_frac"].fillna(median_revol_util)
 
     return df

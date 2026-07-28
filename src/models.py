@@ -35,15 +35,44 @@ OPEX_RATE = 0.05     # Operating cost, as a fraction of approved loan amount
 CAPITAL_RATE = 0.08  # Regulatory-style capital charge, as a fraction of approved loan amount
 AVG_LIFE = 1.4       # Revenue multiplier approximating loan term/renewal effects
 
-# Champion cutoff: a stated assumption representing a plausible current
-# underwriting practice within the C-F grade population, NOT derived from
-# any real institution's actual policy. Flagged as an ask-first item in
-# CLAUDE.md if this needs to change.
-CHAMPION_FICO_CUTOFF = 660
+# Champion cutoff: a stated, documented assumption representing a plausible
+# current underwriting practice within the C-F grade population. Because this
+# dataset only contains ALREADY-ACCEPTED loans (Lending Club does not publish
+# rejected applications), a fixed FICO cutoff can turn out to be non-binding --
+# i.e. everyone in the scoped population already clears it, since they were
+# already screened by Lending Club's own real underwriting before this data
+# was ever published. This is a known limitation of "accepted loans only"
+# data called reject inference -- see CLAUDE.md and README.md.
+#
+# To get a meaningful, binding comparison despite this, champion and
+# challenger are calibrated to the SAME approval rate (a "swap set" analysis:
+# same volume, different mix) rather than relying on an arbitrary absolute
+# FICO number that may not bind on this population.
+CHAMPION_FICO_CUTOFF = 660  # kept as a documented reference constant; see calibrate_fico_cutoff for the binding version
+DEFAULT_TARGET_APPROVAL_RATE = 0.85
 
 
 def champion_decision(df: pd.DataFrame, cutoff: float = CHAMPION_FICO_CUTOFF) -> pd.Series:
     """Rule-based approval: approve if fico_avg >= cutoff. No model involved."""
+    return df["fico_avg"] >= cutoff
+
+
+def calibrate_fico_cutoff(train_df: pd.DataFrame, target_approval_rate: float = DEFAULT_TARGET_APPROVAL_RATE) -> float:
+    """
+    Finds the FICO cutoff, calibrated on the TRAINING population only (avoids
+    leakage), that would approve approximately target_approval_rate of loans --
+    e.g. 0.85 means "decline the riskiest 15% by raw FICO". This makes champion
+    a genuinely binding policy regardless of where this specific population's
+    FICO distribution happens to sit.
+    """
+    decline_rate = 1 - target_approval_rate
+    return float(train_df["fico_avg"].quantile(decline_rate))
+
+
+def champion_decision_volume_matched(df: pd.DataFrame, train_df: pd.DataFrame,
+                                       target_approval_rate: float = DEFAULT_TARGET_APPROVAL_RATE) -> pd.Series:
+    """Champion, calibrated to approve target_approval_rate of the population (e.g. 85%)."""
+    cutoff = calibrate_fico_cutoff(train_df, target_approval_rate)
     return df["fico_avg"] >= cutoff
 
 
@@ -75,6 +104,26 @@ def challenger_decision(model: Pipeline, df: pd.DataFrame, pd_threshold: float) 
     X = df[NUMERIC_FEATURES + CATEGORICAL_FEATURES]
     predicted_pd = model.predict_proba(X)[:, 1]
     return pd.Series(predicted_pd <= pd_threshold, index=df.index)
+
+
+def calibrate_pd_threshold(model: Pipeline, train_df: pd.DataFrame,
+                            target_approval_rate: float = DEFAULT_TARGET_APPROVAL_RATE) -> float:
+    """
+    Finds the PD threshold, calibrated on the TRAINING population's predicted
+    probabilities, that would approve approximately target_approval_rate of
+    loans -- the challenger's equivalent of calibrate_fico_cutoff, so champion
+    and challenger can be compared at the same approval volume (a swap-set
+    analysis: same volume, different mix of who gets approved).
+    """
+    train_pd = predict_pd(model, train_df)
+    return float(np.quantile(train_pd, target_approval_rate))
+
+
+def challenger_decision_volume_matched(model: Pipeline, df: pd.DataFrame, train_df: pd.DataFrame,
+                                         target_approval_rate: float = DEFAULT_TARGET_APPROVAL_RATE) -> pd.Series:
+    """Challenger, calibrated to approve target_approval_rate of the population (e.g. 85%)."""
+    threshold = calibrate_pd_threshold(model, train_df, target_approval_rate)
+    return challenger_decision(model, df, threshold)
 
 
 def predict_pd(model: Pipeline, df: pd.DataFrame) -> np.ndarray:

@@ -4,8 +4,12 @@ import pytest
 from src.features import prepare_features, time_based_split
 from src.models import (
     CHAMPION_FICO_CUTOFF,
+    calibrate_fico_cutoff,
+    calibrate_pd_threshold,
     champion_decision,
+    champion_decision_volume_matched,
     challenger_decision,
+    challenger_decision_volume_matched,
     compute_raroc,
     evaluate_challenger,
     train_challenger,
@@ -77,3 +81,37 @@ def test_evaluate_challenger_returns_expected_keys(prepared_split):
     assert 0.0 <= metrics["auc"] <= 1.0
     assert -1.0 <= metrics["gini"] <= 1.0
     assert 0.0 <= metrics["ks"] <= 1.0
+
+
+def test_calibrate_fico_cutoff_produces_target_approval_rate(prepared_split):
+    train, _ = prepared_split
+    cutoff = calibrate_fico_cutoff(train, target_approval_rate=0.85)
+    approved = champion_decision(train, cutoff=cutoff)
+    # Should be close to 85% approval on the population it was calibrated on
+    assert approved.mean() == pytest.approx(0.85, abs=0.03)
+
+
+def test_champion_volume_matched_is_binding_regardless_of_scale(prepared_split):
+    train, test = prepared_split
+    # Even if every loan in `test` already clears a low absolute cutoff (the
+    # reject-inference scenario seen on the real dataset), volume-matched
+    # champion should still decline roughly 15% of the calibration population.
+    approved_on_train = champion_decision_volume_matched(train, train, target_approval_rate=0.85)
+    assert approved_on_train.mean() == pytest.approx(0.85, abs=0.03)
+
+
+def test_calibrate_pd_threshold_produces_target_approval_rate(prepared_split):
+    train, _ = prepared_split
+    model = train_challenger(train)
+    threshold = calibrate_pd_threshold(model, train, target_approval_rate=0.85)
+    approved = challenger_decision(model, train, pd_threshold=threshold)
+    assert approved.mean() == pytest.approx(0.85, abs=0.03)
+
+
+def test_champion_and_challenger_volume_matched_are_comparable(prepared_split):
+    train, test = prepared_split
+    model = train_challenger(train)
+    champ = champion_decision_volume_matched(test, train, target_approval_rate=0.85)
+    chall = challenger_decision_volume_matched(model, test, train, target_approval_rate=0.85)
+    # Both should approve roughly the same volume -- the whole point of a swap-set analysis
+    assert abs(champ.mean() - chall.mean()) < 0.06

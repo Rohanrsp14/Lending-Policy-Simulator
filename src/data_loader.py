@@ -52,6 +52,11 @@ REQUIRED_COLUMNS = [
     "fico_range_low",
     "fico_range_high",
     "issue_d",
+    "revol_util",
+    "delinq_2yrs",
+    "open_acc",
+    "pub_rec",
+    "inq_last_6mths",
 ]
 
 
@@ -94,6 +99,11 @@ def _parse_int_rate(int_rate: pd.Series) -> pd.Series:
         return int_rate.astype(float) / 100.0
     cleaned = int_rate.astype(str).str.replace("%", "", regex=False).str.strip()
     return pd.to_numeric(cleaned, errors="coerce") / 100.0
+
+
+def _parse_revol_util(revol_util: pd.Series) -> pd.Series:
+    """'45.2%' -> 0.452 (float). Same format as int_rate; kept separate for clarity."""
+    return _parse_int_rate(revol_util)
 
 
 def _parse_emp_length(emp_length: pd.Series) -> pd.Series:
@@ -152,6 +162,7 @@ def clean_and_scope(df: pd.DataFrame, logger: RunLogger) -> pd.DataFrame:
     df["term_months"] = _parse_term(df["term"])
     df["int_rate_frac"] = _parse_int_rate(df["int_rate"])
     df["emp_length_years"] = _parse_emp_length(df["emp_length"])
+    df["revol_util_frac"] = _parse_revol_util(df["revol_util"])
 
     # Derived label: 1 = defaulted/charged off, 0 = fully paid
     df["defaulted"] = df["loan_status"].isin(BAD_STATUSES).astype(int)
@@ -159,7 +170,8 @@ def clean_and_scope(df: pd.DataFrame, logger: RunLogger) -> pd.DataFrame:
     # Drop rows where key numeric fields failed to parse or are missing
     rows_before_na = len(df)
     key_fields = ["loan_amnt", "term_months", "int_rate_frac", "annual_inc", "dti",
-                  "fico_range_low", "fico_range_high"]
+                  "fico_range_low", "fico_range_high", "revol_util_frac",
+                  "delinq_2yrs", "open_acc", "pub_rec", "inq_last_6mths"]
     df = df.dropna(subset=key_fields).copy()
     logger.log("drop_incomplete_rows", rows_in=rows_before_na, rows_out=len(df), fields=key_fields)
 

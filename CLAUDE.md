@@ -25,6 +25,30 @@ here should be presented as, or used as, an actual credit decisioning tool.
 - Every derived dataset must be traceable back to this raw source. No synthetic rows are
   ever mixed into the real dataset without an explicit, visible flag.
 
+## Known limitation: reject inference
+
+This dataset contains **only accepted loans** -- Lending Club does not publish
+rejected applications. Every loan here was already screened by LC's own real
+underwriting before this data was ever published. This means:
+
+- A fixed absolute FICO cutoff can be **non-binding** on this population --
+  observed on the real 2007-2018Q4 data: a champion cutoff of 660 approved
+  100% of the held-out test set, because the scoped population's FICO floor
+  already sits at or above that threshold as an artifact of LC's own real
+  acceptance decision, not because 660 is a meaningful decision boundary here.
+- This is a well-known credit-modeling limitation called **reject inference**:
+  outcome data only exists for approved applicants, so any policy "cutoff"
+  defined on that population alone cannot be validated against the applicants
+  who were never observed.
+- **Mitigation used in this project**: champion and challenger are both
+  calibrated to the same target approval rate on the training population
+  (`calibrate_fico_cutoff` / `calibrate_pd_threshold` in `src/models.py`) --
+  a swap-set analysis (same volume, different mix) rather than an arbitrary
+  absolute threshold. This produces a meaningful comparison despite the
+  underlying reject-inference gap, but does NOT solve reject inference
+  itself -- it is still true that this project cannot say anything about
+  applicants LC actually declined.
+
 ## Always-do
 
 - Cite the data source and vintage/date range in every output and chart.

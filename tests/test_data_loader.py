@@ -37,6 +37,11 @@ def raw_fixture(tmp_path):
         "fico_range_low": [680, 660, 700, 620, 690, 610],
         "fico_range_high": [684, 664, 704, 624, 694, 614],
         "issue_d": ["Jan-2018"] * 6,
+        "revol_util": ["45.2%", "60.1%", "20.0%", "80.5%", "35.0%", "70.2%"],
+        "delinq_2yrs": [0, 1, 0, 2, 0, 1],
+        "open_acc": [8, 5, 10, 4, 9, 6],
+        "pub_rec": [0, 0, 0, 1, 0, 0],
+        "inq_last_6mths": [1, 2, 0, 3, 1, 2],
     })
     path = tmp_path / "raw.csv"
     data.to_csv(path, index=False)
