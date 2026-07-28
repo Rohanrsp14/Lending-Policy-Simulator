@@ -21,6 +21,7 @@ Built incrementally via small, sprint-sized PRs rather than one large drop:
 - [x] **PR 2.4 — RAROC-optimized threshold selection**: fixes a real finding — volume-matching isn't the same as RAROC-optimal.
 - [x] **PR 2.5 — Real time-to-default data**: adds last_pymnt_d + months_on_book, needed for a genuine (not synthetic) vintage curve.
 - [x] **PR 3 — Vintage loss curve + symmetric approval/return frontier**: real time-to-default vintage analysis, plus a frontier that sweeps BOTH policies fairly.
+- [x] **PR 3.1 — Pre-pricing risk model**: removes int_rate_frac as a challenger feature — a real methodological fix found reviewing PR 3's frontier result.
 - [ ] PR 4 — Fair-lending parity screen
 - [ ] PR 5 — Streamlit dashboard
 - [ ] PR 6 — CI polish, docs, deploy
@@ -305,3 +306,22 @@ verified to select each policy's true RAROC-maximizing row.
 
 **Out of scope for this PR**: fair-lending parity screen and the Streamlit dashboard — PR 4
 and PR 5.
+
+### PR 3.1 description (pre-pricing risk model — removed int_rate_frac from challenger features)
+
+**What**: Removes `int_rate_frac` from `NUMERIC_FEATURES` in `src/features.py`. The
+challenger is retrained without Lending Club's own assigned interest rate as an input.
+
+**Why**: Running PR 3 against real data showed challenger's RAROC getting *worse* as it
+became more selective — the opposite of champion's pattern. Root cause: rate was both a
+model input (predicting default) and the primary driver of revenue in RAROC — a model
+partly re-deriving "the rate" as its risk signal, then declining high-rate loans, is a
+circular result, not a genuine economic finding. Real underwriting practice keeps
+approve/decline decisions on pre-pricing risk factors, assigning price afterward.
+
+**Note**: `int_rate_frac` remains in the dataset and is still used for the RAROC revenue
+calculation itself — it's removed only as a challenger MODEL INPUT, not from the data.
+
+**Tests**: all 49 existing tests still pass unchanged (this is a feature-set change, not a
+new function) — confirms nothing downstream hardcoded an assumption about the feature list's
+exact contents.

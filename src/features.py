@@ -21,7 +21,6 @@ NUMERIC_FEATURES = [
     "emp_length_years",
     "term_months",
     "loan_amnt",
-    "int_rate_frac",
     "revol_util_frac",
     "delinq_2yrs",
     "open_acc",

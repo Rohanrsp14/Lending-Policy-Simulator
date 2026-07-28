@@ -25,6 +25,23 @@ here should be presented as, or used as, an actual credit decisioning tool.
 - Every derived dataset must be traceable back to this raw source. No synthetic rows are
   ever mixed into the real dataset without an explicit, visible flag.
 
+## PR 3.1: removed int_rate_frac as a challenger model feature (pre-pricing risk model)
+
+Running PR 3 against real data surfaced a real methodological question: challenger's RAROC
+got WORSE as it became more selective, with its best point at the loosest end of the swept
+range, while champion clearly improved with tighter cutoffs. Root cause: `int_rate_frac`
+(Lending Club's own assigned rate) was included as a challenger model FEATURE -- but rate is
+also the primary driver of revenue in the RAROC calculation. A model trained partly on rate
+to predict default, then evaluated on RAROC (which depends on that same rate), risks
+relearning "the interest rate" as its risk signal and then disproportionately declining
+high-rate (high-revenue) loans in a circular way -- not a genuine economic insight.
+
+**Fix**: removed `int_rate_frac` from `NUMERIC_FEATURES` in `src/features.py`. The challenger
+is now a pre-pricing risk model -- standard real-world practice, where approve/decline
+decisions are made on risk factors that exclude the eventual assigned price, with pricing
+determined afterward. `int_rate_frac` remains in the dataset and is still used for the RAROC
+revenue calculation itself -- it's removed only as a MODEL INPUT, not from the data.
+
 ## PR 3: vintage curve + symmetric approval/return frontier
 
 - `src/vintage.py`: vintage cohort = issue year (not grade -- see rationale below).
