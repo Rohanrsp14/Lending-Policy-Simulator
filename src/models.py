@@ -147,6 +147,52 @@ def challenger_decision_volume_matched(model: Pipeline, df: pd.DataFrame, train_
     return challenger_decision(model, df, threshold)
 
 
+def sweep_pd_thresholds(model: Pipeline, train_df: pd.DataFrame, quantiles: np.ndarray | None = None) -> pd.DataFrame:
+    """
+    Evaluates RAROC (and other metrics) across a range of PD thresholds on the
+    TRAINING set only (avoids leakage -- the test set is never used to pick a
+    threshold). Returns one row per candidate threshold. This is the
+    volume-matching approach's counterpart optimized for economics instead of
+    a fixed approval rate -- and it doubles as groundwork for PR 3's
+    approval/return frontier, which is the same sweep-and-plot idea applied
+    to champion's FICO cutoff instead of challenger's PD threshold.
+    """
+    if quantiles is None:
+        quantiles = np.linspace(0.05, 0.95, 19)
+
+    train_pd = predict_pd(model, train_df)
+    candidate_thresholds = np.quantile(train_pd, quantiles)
+
+    rows = []
+    for q, threshold in zip(quantiles, candidate_thresholds):
+        mask = challenger_decision(model, train_df, threshold)
+        metrics = compute_raroc(train_df, mask)
+        rows.append({"target_quantile": q, "pd_threshold": threshold, **metrics})
+
+    return pd.DataFrame(rows)
+
+
+def calibrate_pd_threshold_for_raroc(model: Pipeline, train_df: pd.DataFrame,
+                                       quantiles: np.ndarray | None = None) -> float:
+    """
+    Sweeps PD thresholds on the TRAINING set and returns the one that
+    maximizes RAROC directly -- rather than calibrate_pd_threshold's approach
+    of matching a target approval volume. Reflects the real objective (risk-
+    adjusted return), not a proxy (approval rate) -- see CLAUDE.md for why
+    volume-matching alone was found to be an incomplete comparison.
+    """
+    sweep = sweep_pd_thresholds(model, train_df, quantiles)
+    best_row = sweep.loc[sweep["raroc"].idxmax()]
+    return float(best_row["pd_threshold"])
+
+
+def challenger_decision_raroc_optimized(model: Pipeline, df: pd.DataFrame, train_df: pd.DataFrame,
+                                          quantiles: np.ndarray | None = None) -> pd.Series:
+    """Challenger, calibrated on train to directly maximize RAROC rather than match a volume target."""
+    threshold = calibrate_pd_threshold_for_raroc(model, train_df, quantiles)
+    return challenger_decision(model, df, threshold)
+
+
 def predict_pd(model: Pipeline, df: pd.DataFrame) -> np.ndarray:
     X = df[NUMERIC_FEATURES + CATEGORICAL_FEATURES]
     return model.predict_proba(X)[:, 1]

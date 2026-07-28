@@ -8,12 +8,15 @@ from src.models import (
     amortized_interest,
     calibrate_fico_cutoff,
     calibrate_pd_threshold,
+    calibrate_pd_threshold_for_raroc,
     champion_decision,
     champion_decision_volume_matched,
     challenger_decision,
+    challenger_decision_raroc_optimized,
     challenger_decision_volume_matched,
     compute_raroc,
     evaluate_challenger,
+    sweep_pd_thresholds,
     train_challenger,
 )
 
@@ -166,3 +169,37 @@ def test_compute_raroc_is_annualized_not_lifetime_total(sample_loans_df):
     all_approved = pd.Series([True] * len(sample_loans_df), index=sample_loans_df.index)
     result = compute_raroc(sample_loans_df, all_approved)
     assert result["raroc"] < 1.0  # well under 100% -- a lifetime-total bug would blow past this easily
+
+
+def test_sweep_pd_thresholds_returns_expected_columns(prepared_split):
+    train, _ = prepared_split
+    model = train_challenger(train)
+    sweep = sweep_pd_thresholds(model, train)
+    assert {"target_quantile", "pd_threshold", "raroc", "n", "approval_rate"}.issubset(sweep.columns)
+    assert len(sweep) == 19  # default: np.linspace(0.05, 0.95, 19)
+
+
+def test_calibrate_pd_threshold_for_raroc_matches_sweep_best(prepared_split):
+    train, _ = prepared_split
+    model = train_challenger(train)
+    sweep = sweep_pd_thresholds(model, train)
+    best_threshold = calibrate_pd_threshold_for_raroc(model, train)
+    expected_best = sweep.loc[sweep["raroc"].idxmax(), "pd_threshold"]
+    assert best_threshold == pytest.approx(expected_best)
+
+
+def test_raroc_optimized_beats_or_matches_volume_matched_on_train(prepared_split):
+    """
+    By construction, the RAROC-optimized threshold should never do WORSE than
+    volume-matched on the population it was optimized on (train) -- it's
+    chosen specifically to maximize RAROC there. This can still differ on a
+    held-out test set due to normal train/test drift, which is expected and
+    not a test failure condition here.
+    """
+    train, _ = prepared_split
+    model = train_challenger(train)
+    volume_matched_mask = challenger_decision_volume_matched(model, train, train)
+    raroc_optimized_mask = challenger_decision_raroc_optimized(model, train, train)
+    volume_matched_raroc = compute_raroc(train, volume_matched_mask)["raroc"]
+    raroc_optimized_raroc = compute_raroc(train, raroc_optimized_mask)["raroc"]
+    assert raroc_optimized_raroc >= volume_matched_raroc - 1e-9

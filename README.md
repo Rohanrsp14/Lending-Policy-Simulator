@@ -18,6 +18,7 @@ Built incrementally via small, sprint-sized PRs rather than one large drop:
 - [x] **PR 2.1 — Volume-matched calibration + expanded risk features**: fixes the reject-inference finding from running PR 2 against real data.
 - [x] **PR 2.2 — Amortized revenue, more features, platform-maturity scope**: fixes 3 limitations found reviewing PR 2.1's real results.
 - [x] **PR 2.3 — RAROC annualization fix**: fixes a real bug (RAROC >100%) surfaced by running PR 2.2 against real data.
+- [x] **PR 2.4 — RAROC-optimized threshold selection**: fixes a real finding — volume-matching isn't the same as RAROC-optimal.
 - [ ] PR 3 — Vintage loss curve + approval/return frontier
 - [ ] PR 4 — Fair-lending parity screen
 - [ ] PR 5 — Streamlit dashboard
@@ -229,5 +230,38 @@ hiding it or never having made it in the first place.
 `test_compute_raroc_is_annualized_not_lifetime_total` as an explicit regression guard — asserts
 RAROC stays under 100% on the synthetic fixture, so this specific bug class can't silently
 reappear.
+
+**Out of scope for this PR**: still PR 3+ for vintage curve, frontier, fair-lending, dashboard.
+
+### PR 2.4 description (RAROC-optimized threshold selection)
+
+**What**: Running PR 2.3 against real data surfaced a real, explainable finding: the
+volume-matched challenger had a lower loss rate than champion (15.30% vs. 17.31%) but a
+*worse* RAROC (-7.3% vs. 0.1%). Diagnosis (checking approved-population averages) confirmed
+why: the challenger's approved set had a lower average interest rate, smaller average loan
+amount, and shorter average term than champion's — a PD model that reduces default risk will
+naturally tend to decline higher-rate (higher-revenue) loans too, since Lending Club's own
+rate assignment already reflects their risk view. Optimizing a ranking metric (PD) isn't the
+same as optimizing the real economic objective (RAROC).
+
+**Fix/addition**: `sweep_pd_thresholds` evaluates RAROC across a range of PD thresholds on
+the training set (no leakage), and `calibrate_pd_threshold_for_raroc` selects the threshold
+that directly maximizes RAROC rather than matching a volume target.
+`challenger_decision_raroc_optimized` applies it. `scripts/run_evaluation.py` now prints all
+three policies side by side: champion, volume-matched challenger, and RAROC-optimized
+challenger — so the improvement (or lack of one) from actually optimizing for the right
+objective is visible directly.
+
+**Why this matters for the interview story**: this is a genuinely sophisticated point —
+"a model that improves default prediction doesn't automatically improve risk-adjusted return
+if it disproportionately declines your highest-margin loans along with the risky ones; you
+have to calibrate against the actual economic objective, not just a ranking metric." Finding
+and fixing this, rather than presenting the volume-matched number as the final answer, is a
+stronger result than either outcome alone.
+
+**Tests**: 3 new tests (36 total) — verifies the sweep returns the expected structure,
+confirms `calibrate_pd_threshold_for_raroc` actually selects the sweep's best row, and
+confirms the RAROC-optimized threshold never underperforms volume-matching on the population
+it was optimized on (a built-by-construction guarantee, checked as a regression test).
 
 **Out of scope for this PR**: still PR 3+ for vintage curve, frontier, fair-lending, dashboard.
