@@ -25,6 +25,16 @@ here should be presented as, or used as, an actual credit decisioning tool.
 - Every derived dataset must be traceable back to this raw source. No synthetic rows are
   ever mixed into the real dataset without an explicit, visible flag.
 
+## Finer-grid validation of the sensitivity analysis's optimum
+
+The first sensitivity run found an identical best-approval-rate (54.48%/98.42%) at every
+single tested value across all three parameter sweeps -- plausible (costs scale
+proportionally with approved balance), but worth confirming rather than assuming. Added
+`quantiles` forwarding through `run_sensitivity` -> `_one_parameter_sweep` -> `compute_frontier`,
+so `scripts/run_sensitivity.py` now runs a 100-point grid (vs. the original 25) and explicitly
+reports whether the optimum approval rate is identical across every sweep at the finer
+resolution too, rather than leaving that as an unverified assumption.
+
 ## RAROC Sensitivity Analysis
 
 `src/sensitivity.py` stress-tests whether champion's RAROC advantage over challenger
