@@ -158,6 +158,16 @@ def compute_raroc(df: pd.DataFrame, approved_mask: pd.Series) -> dict:
     REAL loan_amnt/int_rate_frac and REALIZED (actual, historical) default
     outcomes -- not a model-predicted probability. This is what makes
     champion and challenger directly comparable on the same held-out data.
+
+    IMPORTANT -- annualized, not lifetime-total: amortized_interest() and the
+    realized loss are both full-loan-life figures (e.g. 3-5 years' worth).
+    capital and opex are point-in-time charges on the loan amount, meant to
+    represent an ANNUAL charge (standard RAROC convention). Comparing a
+    multi-year revenue total directly against a one-year capital base
+    produces a nonsensical RAROC (a real bug caught by running this against
+    real data -- see CLAUDE.md). Revenue and loss are therefore divided by
+    each loan's own term-in-years before being summed, so every quantity
+    feeding RAROC is on the same annual basis as the capital charge.
     """
     approved = df[approved_mask]
     n = len(approved)
@@ -168,23 +178,29 @@ def compute_raroc(df: pd.DataFrame, approved_mask: pd.Series) -> dict:
             "loss_rate": 0.0,
         }
 
-    revenue = amortized_interest(
+    term_years = approved["term_months"].values / 12
+
+    lifetime_interest = amortized_interest(
         approved["loan_amnt"].values,
         approved["int_rate_frac"].values,
         approved["term_months"].values,
-    ).sum()
-    actual_loss = (approved["loan_amnt"] * approved[TARGET] * LGD).sum()
+    )
+    annual_revenue = (lifetime_interest / term_years).sum()
+
+    lifetime_loss = (approved["loan_amnt"] * approved[TARGET] * LGD).values
+    annual_loss = (lifetime_loss / term_years).sum()
+
     opex = (approved["loan_amnt"] * OPEX_RATE).sum()
     capital = (approved["loan_amnt"] * CAPITAL_RATE).sum()
-    net_income = revenue - actual_loss - opex
+    net_income = annual_revenue - annual_loss - opex
     raroc = net_income / capital if capital > 0 else 0.0
-    loss_rate = actual_loss / approved["loan_amnt"].sum()
+    loss_rate = lifetime_loss.sum() / approved["loan_amnt"].sum()  # unannualized -- a simple lifetime loss rate, easier to read
 
     return {
         "n": n,
         "approval_rate": n / len(df),
-        "revenue": revenue,
-        "actual_loss": actual_loss,
+        "revenue": annual_revenue,
+        "actual_loss": annual_loss,
         "opex": opex,
         "capital": capital,
         "net_income": net_income,

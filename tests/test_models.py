@@ -62,9 +62,11 @@ def test_compute_raroc_empty_approval_returns_zeros(sample_loans_df):
 def test_compute_raroc_uses_real_outcomes_not_model(sample_loans_df):
     all_approved = pd.Series([True] * len(sample_loans_df), index=sample_loans_df.index)
     result = compute_raroc(sample_loans_df, all_approved)
-    # loss should be computable directly from realized 'defaulted' column
-    expected_loss = (sample_loans_df["loan_amnt"] * sample_loans_df["defaulted"] * 0.55).sum()
-    assert result["actual_loss"] == pytest.approx(expected_loss)
+    # loss should be computable directly from realized 'defaulted' column, annualized by term
+    term_years = sample_loans_df["term_months"].values / 12
+    expected_lifetime_loss = sample_loans_df["loan_amnt"].values * sample_loans_df["defaulted"].values * 0.55
+    expected_annual_loss = (expected_lifetime_loss / term_years).sum()
+    assert result["actual_loss"] == pytest.approx(expected_annual_loss)
 
 
 def test_compute_raroc_tighter_cutoff_changes_approval_rate(sample_loans_df):
@@ -144,9 +146,23 @@ def test_amortized_interest_greater_for_longer_term():
 def test_compute_raroc_uses_amortized_revenue_not_flat_multiplier(sample_loans_df):
     all_approved = pd.Series([True] * len(sample_loans_df), index=sample_loans_df.index)
     result = compute_raroc(sample_loans_df, all_approved)
-    expected_revenue = amortized_interest(
+    term_years = sample_loans_df["term_months"].values / 12
+    lifetime_interest = amortized_interest(
         sample_loans_df["loan_amnt"].values,
         sample_loans_df["int_rate_frac"].values,
         sample_loans_df["term_months"].values,
-    ).sum()
-    assert result["revenue"] == pytest.approx(expected_revenue)
+    )
+    expected_annual_revenue = (lifetime_interest / term_years).sum()
+    assert result["revenue"] == pytest.approx(expected_annual_revenue)
+
+
+def test_compute_raroc_is_annualized_not_lifetime_total(sample_loans_df):
+    """
+    Regression test for a real bug: comparing lifetime-total revenue/loss
+    against a one-year capital charge produced RAROC > 100% on real data.
+    Revenue and loss must be divided by loan term-in-years before reaching
+    RAROC, so a believable portfolio RAROC should land well under 100%.
+    """
+    all_approved = pd.Series([True] * len(sample_loans_df), index=sample_loans_df.index)
+    result = compute_raroc(sample_loans_df, all_approved)
+    assert result["raroc"] < 1.0  # well under 100% -- a lifetime-total bug would blow past this easily
