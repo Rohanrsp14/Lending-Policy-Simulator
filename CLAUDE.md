@@ -1,0 +1,55 @@
+# CLAUDE.md — Lending Policy Simulator
+
+Project context and build rules for anyone (human or Claude Code) working on this repo.
+
+## What this is
+
+A champion/challenger consumer-lending policy simulator built on real, public Lending Club
+loan-level data, scoped to a near-prime/subprime population representative of a Regional
+Finance-tier installment lender. Computes a P&L waterfall to RAROC, vintage loss emergence,
+an approval/return frontier, and a fair-lending parity screen — deployed as a Streamlit app.
+
+**This is a portfolio/analytical project, not a production underwriting system.** Nothing
+here should be presented as, or used as, an actual credit decisioning tool.
+
+## Data provenance
+
+- **Source**: Lending Club accepted loans, public dataset (commonly distributed via Kaggle,
+  e.g. `wordsforthewise/lending-club`). Not included in this repo — download separately and
+  place in `data/raw/`.
+- **Scope for v1**: filtered to loan grades C–F (near-prime/subprime) as a proxy for the
+  Regional Finance lending tier, and to loans with a **matured, known outcome**
+  (`Fully Paid` or `Charged Off` / `Default` only — `Current`, `Issued`, and `Late` statuses
+  are excluded because their eventual outcome is not yet known and including them would leak
+  survivorship bias into the loss-rate calculation).
+- Every derived dataset must be traceable back to this raw source. No synthetic rows are
+  ever mixed into the real dataset without an explicit, visible flag.
+
+## Always-do
+
+- Cite the data source and vintage/date range in every output and chart.
+- Log every ingestion run (row counts in/out at each filter step, timestamp, source file
+  hash if feasible) to `logs/` — structured, not just print statements.
+- Write a test for every cleaning/parsing function before wiring it into the pipeline.
+- State every simplifying assumption in RAROC/capital/loss formulas explicitly in the README
+  and in-app — these are illustrative, not calibrated to Lending Club's or any real
+  institution's actual economics.
+- Keep the fair-lending parity check's protected-class proxy field clearly labeled as
+  **synthetic/illustrative** if Lending Club data itself doesn't include one (it doesn't —
+  no demographic fields are in this dataset), so the parity check is never mistaken for a
+  real disparate-impact analysis on real applicant demographics.
+
+## Ask-first
+
+- Changing the grade/tier scope (currently C–F).
+- Changing the loan-status inclusion/exclusion rule (currently Fully Paid + Charged Off/Default only).
+- Adding any new external data source.
+- Changing the RAROC/capital formula assumptions.
+
+## Never-do
+
+- Never fabricate or synthesize loan records mixed into the real dataset without a visible flag.
+- Never hardcode API keys/secrets — Kaggle credentials go in `.env`, never committed.
+- Never claim this tool certifies fair-lending compliance, SR 11-7 model-risk compliance, or
+  any real regulatory standard — it borrows the concepts for realistic structure only.
+- Never overclaim model/metric accuracy beyond what the eval actually shows.
