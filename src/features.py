@@ -27,8 +27,10 @@ NUMERIC_FEATURES = [
     "open_acc",
     "pub_rec",
     "inq_last_6mths",
+    "mort_acc",
+    "total_acc",
 ]
-CATEGORICAL_FEATURES = ["purpose"]
+CATEGORICAL_FEATURES = ["purpose", "home_ownership", "verification_status"]
 TARGET = "defaulted"
 
 
@@ -74,5 +76,9 @@ def prepare_features(df: pd.DataFrame) -> pd.DataFrame:
     if df["revol_util_frac"].isna().any():
         median_revol_util = df["revol_util_frac"].median()
         df["revol_util_frac"] = df["revol_util_frac"].fillna(median_revol_util)
+
+    for col in CATEGORICAL_FEATURES:
+        if df[col].isna().any():
+            df[col] = df[col].fillna("UNKNOWN")
 
     return df

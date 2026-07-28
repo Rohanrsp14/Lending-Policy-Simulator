@@ -33,7 +33,28 @@ from src.features import CATEGORICAL_FEATURES, NUMERIC_FEATURES, TARGET
 LGD = 0.55          # Loss given default
 OPEX_RATE = 0.05     # Operating cost, as a fraction of approved loan amount
 CAPITAL_RATE = 0.08  # Regulatory-style capital charge, as a fraction of approved loan amount
-AVG_LIFE = 1.4       # Revenue multiplier approximating loan term/renewal effects
+
+
+def amortized_interest(loan_amnt: np.ndarray, int_rate_frac: np.ndarray, term_months: np.ndarray) -> np.ndarray:
+    """
+    Total interest income over the full loan term, using the standard
+    fixed-payment installment amortization formula -- replaces an earlier,
+    cruder flat multiplier (loan_amnt * rate * a fudge factor).
+
+    KNOWN LIMITATION (documented, not hidden): this assumes every approved
+    loan runs to full term. Loans that default early stop paying before
+    then, so this OVERSTATES revenue on defaulted loans specifically. A
+    fully correct cash-flow model would need each loan's actual time-to-
+    default, which is exactly what the vintage/time-on-book analysis in
+    PR 3 adds -- this fix is a real improvement over the prior flat
+    multiplier, but the early-default revenue truncation is intentionally
+    deferred to that PR, not silently ignored. See CLAUDE.md.
+    """
+    monthly_rate = int_rate_frac / 12
+    n = term_months
+    payment = loan_amnt * monthly_rate * (1 + monthly_rate) ** n / ((1 + monthly_rate) ** n - 1)
+    total_interest = payment * n - loan_amnt
+    return total_interest
 
 # Champion cutoff: a stated, documented assumption representing a plausible
 # current underwriting practice within the C-F grade population. Because this
@@ -147,7 +168,11 @@ def compute_raroc(df: pd.DataFrame, approved_mask: pd.Series) -> dict:
             "loss_rate": 0.0,
         }
 
-    revenue = (approved["loan_amnt"] * approved["int_rate_frac"] * AVG_LIFE).sum()
+    revenue = amortized_interest(
+        approved["loan_amnt"].values,
+        approved["int_rate_frac"].values,
+        approved["term_months"].values,
+    ).sum()
     actual_loss = (approved["loan_amnt"] * approved[TARGET] * LGD).sum()
     opex = (approved["loan_amnt"] * OPEX_RATE).sum()
     capital = (approved["loan_amnt"] * CAPITAL_RATE).sum()

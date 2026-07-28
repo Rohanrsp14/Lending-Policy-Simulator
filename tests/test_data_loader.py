@@ -23,25 +23,30 @@ from src.data_loader import (
 def raw_fixture(tmp_path):
     """A tiny synthetic dataset covering the edge cases the pipeline needs to handle."""
     data = pd.DataFrame({
-        "loan_amnt": [10000, 5000, 8000, 12000, 3000, 15000],
-        "term": [" 36 months", " 60 months", " 36 months", " 60 months", " 36 months", " 36 months"],
-        "int_rate": ["13.56%", "18.25%", "11.00%", "22.10%", "9.50%", "14.00%"],
-        "grade": ["C", "D", "A", "E", "B", "F"],          # A and B should be filtered out
-        "sub_grade": ["C3", "D1", "A2", "E4", "B1", "F2"],
-        "emp_length": ["10+ years", "< 1 year", "5 years", "n/a", "2 years", "3 years"],
-        "annual_inc": [55000, 40000, 60000, 35000, 45000, 30000],
-        "dti": [18.5, 22.0, 15.0, 28.0, 20.0, 25.0],
+        "loan_amnt": [10000, 5000, 8000, 12000, 3000, 15000, 9000],
+        "term": [" 36 months", " 60 months", " 36 months", " 60 months", " 36 months", " 36 months", " 36 months"],
+        "int_rate": ["13.56%", "18.25%", "11.00%", "22.10%", "9.50%", "14.00%", "16.00%"],
+        "grade": ["C", "D", "A", "E", "B", "F", "D"],          # A and B should be filtered out
+        "sub_grade": ["C3", "D1", "A2", "E4", "B1", "F2", "D2"],
+        "emp_length": ["10+ years", "< 1 year", "5 years", "n/a", "2 years", "3 years", "4 years"],
+        "annual_inc": [55000, 40000, 60000, 35000, 45000, 30000, 48000],
+        "dti": [18.5, 22.0, 15.0, 28.0, 20.0, 25.0, 19.0],
         # "Current" and "Issued" should be filtered out (no known outcome yet)
-        "loan_status": ["Fully Paid", "Charged Off", "Fully Paid", "Default", "Current", "Fully Paid"],
-        "purpose": ["debt_consolidation", "credit_card", "other", "medical", "debt_consolidation", "home_improvement"],
-        "fico_range_low": [680, 660, 700, 620, 690, 610],
-        "fico_range_high": [684, 664, 704, 624, 694, 614],
-        "issue_d": ["Jan-2018"] * 6,
-        "revol_util": ["45.2%", "60.1%", "20.0%", "80.5%", "35.0%", "70.2%"],
-        "delinq_2yrs": [0, 1, 0, 2, 0, 1],
-        "open_acc": [8, 5, 10, 4, 9, 6],
-        "pub_rec": [0, 0, 0, 1, 0, 0],
-        "inq_last_6mths": [1, 2, 0, 3, 1, 2],
+        "loan_status": ["Fully Paid", "Charged Off", "Fully Paid", "Default", "Current", "Fully Paid", "Fully Paid"],
+        "purpose": ["debt_consolidation", "credit_card", "other", "medical", "debt_consolidation", "home_improvement", "credit_card"],
+        "fico_range_low": [680, 660, 700, 620, 690, 610, 665],
+        "fico_range_high": [684, 664, 704, 624, 694, 614, 669],
+        # Last row is pre-2012 -- should be filtered out by the platform-maturity scope
+        "issue_d": ["Jan-2018", "Mar-2018", "Feb-2018", "Apr-2018", "May-2018", "Jun-2018", "Jun-2009"],
+        "revol_util": ["45.2%", "60.1%", "20.0%", "80.5%", "35.0%", "70.2%", "50.0%"],
+        "delinq_2yrs": [0, 1, 0, 2, 0, 1, 0],
+        "open_acc": [8, 5, 10, 4, 9, 6, 7],
+        "pub_rec": [0, 0, 0, 1, 0, 0, 0],
+        "inq_last_6mths": [1, 2, 0, 3, 1, 2, 1],
+        "home_ownership": ["RENT", "MORTGAGE", "OWN", "RENT", "MORTGAGE", "RENT", "OWN"],
+        "verification_status": ["Verified", "Not Verified", "Source Verified", "Verified", "Not Verified", "Verified", "Verified"],
+        "mort_acc": [1, 0, 2, 0, 1, 0, 1],
+        "total_acc": [15, 8, 20, 6, 12, 9, 11],
     })
     path = tmp_path / "raw.csv"
     data.to_csv(path, index=False)
@@ -115,6 +120,15 @@ def test_clean_and_scope_derives_default_label(raw_fixture, tmp_path):
     charged_off_or_default = cleaned[cleaned["loan_status"].isin(["Charged Off", "Default"])]
     assert (fully_paid["defaulted"] == 0).all()
     assert (charged_off_or_default["defaulted"] == 1).all()
+
+
+def test_clean_and_scope_filters_platform_maturity(raw_fixture, tmp_path):
+    logger = RunLogger(tmp_path / "log.jsonl")
+    df = load_raw(raw_fixture, logger)
+    cleaned = clean_and_scope(df, logger)
+    # The Jun-2009 row should be excluded -- pre-2012 platform-maturity scope
+    assert "Jun-2009" not in cleaned["issue_d"].values
+    assert cleaned["issue_d"].str.contains("2009").sum() == 0
 
 
 def test_clean_and_scope_computes_fico_avg(raw_fixture, tmp_path):

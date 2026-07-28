@@ -25,6 +25,25 @@ here should be presented as, or used as, an actual credit decisioning tool.
 - Every derived dataset must be traceable back to this raw source. No synthetic rows are
   ever mixed into the real dataset without an explicit, visible flag.
 
+## Known limitations addressed in PR 2.2
+
+- **Revenue is amortized, not flat-multiplied** (`src/models.py::amortized_interest`) --
+  a real fixed-payment installment amortization formula, replacing an earlier flat
+  `loan_amnt * rate * fudge_factor` approximation. This still assumes every approved
+  loan runs to full term, which overstates revenue specifically on loans that default
+  early (they stop paying before maturity). Fully correcting this needs each loan's
+  actual time-to-default -- deferred intentionally to PR 3's vintage/time-on-book work,
+  not silently ignored.
+- **Platform-maturity scope**: data is now filtered to loans issued in `MIN_ISSUE_YEAR`
+  (2012) or later. Lending Club's 2007-2011 originations were a small, immature platform
+  with materially different underwriting and volume than the post-2012 period --
+  mixing these regimes into one model added noise. This is a stated, locked scope
+  decision (ask-first if it needs to change), not a silent data drop.
+- **Expanded features**: `home_ownership`, `verification_status`, `mort_acc`,
+  `total_acc` added -- all real fields already present in the raw Lending Club export,
+  added to strengthen the challenger model's ranking quality (AUC was modest at 0.63
+  with the original feature set).
+
 ## Known limitation: reject inference
 
 This dataset contains **only accepted loans** -- Lending Club does not publish
