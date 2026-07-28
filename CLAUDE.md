@@ -25,6 +25,27 @@ here should be presented as, or used as, an actual credit decisioning tool.
 - Every derived dataset must be traceable back to this raw source. No synthetic rows are
   ever mixed into the real dataset without an explicit, visible flag.
 
+## RAROC Sensitivity Analysis
+
+`src/sensitivity.py` stress-tests whether champion's RAROC advantage over challenger
+(Section 6 of `docs/MODEL_VALIDATION.md`) holds across a plausible range of the illustrative
+LGD/opex/capital assumptions, one at a time (holding the other two at base case). For each
+tested value, BOTH policies are re-optimized on their own frontier under that assumption
+(not just re-evaluated at the original best point) -- so the sweep answers "what's actually
+the best each policy could do under this cost structure," not just "how does the old best
+point react to a new cost."
+
+`summarize_robustness()` classifies each swept parameter as: champion always wins (fully
+robust), challenger always wins (also robust, opposite direction), or the conclusion depends
+on the assumption (the most useful case to flag to a real business -- it says exactly which
+number Treasury/Finance needs to supply before either conclusion can be trusted).
+
+`compute_raroc`, `sweep_pd_thresholds`, `calibrate_pd_threshold_for_raroc`, and
+`compute_frontier` all now accept optional `lgd`/`opex_rate`/`capital_rate` arguments
+(defaulting to the existing illustrative module constants) to make this sweep possible
+without any change to existing default behavior -- all 49 pre-existing tests still pass
+unchanged.
+
 ## PR 3.1: removed int_rate_frac as a challenger model feature (pre-pricing risk model)
 
 Running PR 3 against real data surfaced a real methodological question: challenger's RAROC

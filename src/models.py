@@ -147,7 +147,9 @@ def challenger_decision_volume_matched(model: Pipeline, df: pd.DataFrame, train_
     return challenger_decision(model, df, threshold)
 
 
-def sweep_pd_thresholds(model: Pipeline, train_df: pd.DataFrame, quantiles: np.ndarray | None = None) -> pd.DataFrame:
+def sweep_pd_thresholds(model: Pipeline, train_df: pd.DataFrame, quantiles: np.ndarray | None = None,
+                         lgd: float = LGD, opex_rate: float = OPEX_RATE,
+                         capital_rate: float = CAPITAL_RATE) -> pd.DataFrame:
     """
     Evaluates RAROC (and other metrics) across a range of PD thresholds on the
     TRAINING set only (avoids leakage -- the test set is never used to pick a
@@ -156,6 +158,10 @@ def sweep_pd_thresholds(model: Pipeline, train_df: pd.DataFrame, quantiles: np.n
     a fixed approval rate -- and it doubles as groundwork for PR 3's
     approval/return frontier, which is the same sweep-and-plot idea applied
     to champion's FICO cutoff instead of challenger's PD threshold.
+
+    lgd/opex_rate/capital_rate forward to compute_raroc -- lets
+    src/sensitivity.py re-optimize the threshold under different economic
+    assumptions, not just re-evaluate the original threshold under new costs.
     """
     if quantiles is None:
         quantiles = np.linspace(0.05, 0.95, 19)
@@ -166,14 +172,16 @@ def sweep_pd_thresholds(model: Pipeline, train_df: pd.DataFrame, quantiles: np.n
     rows = []
     for q, threshold in zip(quantiles, candidate_thresholds):
         mask = challenger_decision(model, train_df, threshold)
-        metrics = compute_raroc(train_df, mask)
+        metrics = compute_raroc(train_df, mask, lgd=lgd, opex_rate=opex_rate, capital_rate=capital_rate)
         rows.append({"target_quantile": q, "pd_threshold": threshold, **metrics})
 
     return pd.DataFrame(rows)
 
 
 def calibrate_pd_threshold_for_raroc(model: Pipeline, train_df: pd.DataFrame,
-                                       quantiles: np.ndarray | None = None) -> float:
+                                       quantiles: np.ndarray | None = None,
+                                       lgd: float = LGD, opex_rate: float = OPEX_RATE,
+                                       capital_rate: float = CAPITAL_RATE) -> float:
     """
     Sweeps PD thresholds on the TRAINING set and returns the one that
     maximizes RAROC directly -- rather than calibrate_pd_threshold's approach
@@ -181,7 +189,7 @@ def calibrate_pd_threshold_for_raroc(model: Pipeline, train_df: pd.DataFrame,
     adjusted return), not a proxy (approval rate) -- see CLAUDE.md for why
     volume-matching alone was found to be an incomplete comparison.
     """
-    sweep = sweep_pd_thresholds(model, train_df, quantiles)
+    sweep = sweep_pd_thresholds(model, train_df, quantiles, lgd=lgd, opex_rate=opex_rate, capital_rate=capital_rate)
     best_row = sweep.loc[sweep["raroc"].idxmax()]
     return float(best_row["pd_threshold"])
 
@@ -198,12 +206,20 @@ def predict_pd(model: Pipeline, df: pd.DataFrame) -> np.ndarray:
     return model.predict_proba(X)[:, 1]
 
 
-def compute_raroc(df: pd.DataFrame, approved_mask: pd.Series) -> dict:
+def compute_raroc(df: pd.DataFrame, approved_mask: pd.Series,
+                   lgd: float = LGD, opex_rate: float = OPEX_RATE,
+                   capital_rate: float = CAPITAL_RATE) -> dict:
     """
     Computes the P&L waterfall to RAROC for an approved population, using
     REAL loan_amnt/int_rate_frac and REALIZED (actual, historical) default
     outcomes -- not a model-predicted probability. This is what makes
     champion and challenger directly comparable on the same held-out data.
+
+    lgd/opex_rate/capital_rate default to the module-level illustrative
+    constants but can be overridden -- this is what lets
+    src/sensitivity.py stress-test the conclusion across a plausible range
+    of assumptions instead of relying on one fixed, admittedly-illustrative
+    set of numbers. See docs/MODEL_VALIDATION.md Section 9.
 
     IMPORTANT -- annualized, not lifetime-total: amortized_interest() and the
     realized loss are both full-loan-life figures (e.g. 3-5 years' worth).
@@ -233,11 +249,11 @@ def compute_raroc(df: pd.DataFrame, approved_mask: pd.Series) -> dict:
     )
     annual_revenue = (lifetime_interest / term_years).sum()
 
-    lifetime_loss = (approved["loan_amnt"] * approved[TARGET] * LGD).values
+    lifetime_loss = (approved["loan_amnt"] * approved[TARGET] * lgd).values
     annual_loss = (lifetime_loss / term_years).sum()
 
-    opex = (approved["loan_amnt"] * OPEX_RATE).sum()
-    capital = (approved["loan_amnt"] * CAPITAL_RATE).sum()
+    opex = (approved["loan_amnt"] * opex_rate).sum()
+    capital = (approved["loan_amnt"] * capital_rate).sum()
     net_income = annual_revenue - annual_loss - opex
     raroc = net_income / capital if capital > 0 else 0.0
     loss_rate = lifetime_loss.sum() / approved["loan_amnt"].sum()  # unannualized -- a simple lifetime loss rate, easier to read
