@@ -47,6 +47,8 @@ def raw_fixture(tmp_path):
         "verification_status": ["Verified", "Not Verified", "Source Verified", "Verified", "Not Verified", "Verified", "Verified"],
         "mort_acc": [1, 0, 2, 0, 1, 0, 1],
         "total_acc": [15, 8, 20, 6, 12, 9, 11],
+        # last_pymnt_d after issue_d for all except one intentionally invalid row (Apr-2018 row)
+        "last_pymnt_d": ["Dec-2019", "Sep-2018", "Nov-2020", "Feb-2018", "Aug-2018", "Dec-2020", "May-2009"],
     })
     path = tmp_path / "raw.csv"
     data.to_csv(path, index=False)
@@ -129,6 +131,25 @@ def test_clean_and_scope_filters_platform_maturity(raw_fixture, tmp_path):
     # The Jun-2009 row should be excluded -- pre-2012 platform-maturity scope
     assert "Jun-2009" not in cleaned["issue_d"].values
     assert cleaned["issue_d"].str.contains("2009").sum() == 0
+
+
+def test_clean_and_scope_computes_months_on_book(raw_fixture, tmp_path):
+    logger = RunLogger(tmp_path / "log.jsonl")
+    df = load_raw(raw_fixture, logger)
+    cleaned = clean_and_scope(df, logger)
+    assert "months_on_book" in cleaned.columns
+    assert (cleaned["months_on_book"] >= 0).all()
+    # Row 0: issued Jan-2018, last payment Dec-2019 -> 23 months
+    row0 = cleaned[cleaned["issue_d"] == "Jan-2018"].iloc[0]
+    assert row0["months_on_book"] == 23
+
+
+def test_clean_and_scope_filters_invalid_months_on_book(raw_fixture, tmp_path):
+    logger = RunLogger(tmp_path / "log.jsonl")
+    df = load_raw(raw_fixture, logger)
+    cleaned = clean_and_scope(df, logger)
+    # The Apr-2018 row has last_pymnt_d of Feb-2018 (before issue_d) -- invalid, should be dropped
+    assert "Apr-2018" not in cleaned["issue_d"].values
 
 
 def test_clean_and_scope_computes_fico_avg(raw_fixture, tmp_path):
