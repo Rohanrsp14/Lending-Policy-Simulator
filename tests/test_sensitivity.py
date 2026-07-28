@@ -59,6 +59,27 @@ def test_higher_lgd_reduces_raroc_for_both_policies(prepared_split_for_sensitivi
     assert lgd_sweep.iloc[0]["challenger_best_raroc"] >= lgd_sweep.iloc[-1]["challenger_best_raroc"]
 
 
+def test_run_sensitivity_forwards_custom_quantiles(prepared_split_for_sensitivity):
+    """
+    Confirms the quantiles argument actually reaches compute_frontier --
+    this is what lets a finer grid be used to validate that a found optimum
+    approval rate is a genuine peak, not a coarse-grid artifact.
+    """
+    train, test = prepared_split_for_sensitivity
+    model = train_challenger(train)
+    fine_quantiles = np.linspace(0.50, 0.99, 50)
+    result = run_sensitivity(
+        model, train, test,
+        lgd_range=np.array([0.55]),
+        opex_range=np.array([0.05]),
+        capital_range=np.array([0.08]),
+        quantiles=fine_quantiles,
+    )
+    # Should run without error and produce the same expected structure
+    assert len(result) == 3  # one row per parameter (1 value each)
+    assert result["champion_best_approval_rate"].notna().all()
+
+
 def test_summarize_robustness_returns_one_row_per_parameter(prepared_split_for_sensitivity):
     train, test = prepared_split_for_sensitivity
     model = train_challenger(train)

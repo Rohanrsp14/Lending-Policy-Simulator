@@ -29,13 +29,19 @@ DEFAULT_CAPITAL_RANGE = np.linspace(0.04, 0.12, 5)
 
 
 def _one_parameter_sweep(model: Pipeline, train_df: pd.DataFrame, test_df: pd.DataFrame,
-                          param_name: str, param_values: np.ndarray) -> pd.DataFrame:
+                          param_name: str, param_values: np.ndarray,
+                          quantiles: np.ndarray | None = None) -> pd.DataFrame:
     """
     Sweeps ONE economic parameter across param_values, holding the other two
     at their base-case (module-default) value. For each value, finds each
     policy's own best point on ITS OWN frontier (re-optimized under the new
     assumption, not just re-evaluated at the original best point) and
     records the resulting RAROC and the delta between policies.
+
+    quantiles forwards to compute_frontier's own quantiles argument -- pass
+    a finer grid (e.g. np.linspace(0.50, 0.99, 100) instead of the default
+    25 points) to confirm a found optimum is a genuine peak and not a
+    coarse-grid artifact. See CLAUDE.md.
     """
     base = {"lgd": LGD, "opex_rate": OPEX_RATE, "capital_rate": CAPITAL_RATE}
     rows = []
@@ -44,7 +50,7 @@ def _one_parameter_sweep(model: Pipeline, train_df: pd.DataFrame, test_df: pd.Da
         kwargs = dict(base)
         kwargs[param_name] = value
 
-        frontier = compute_frontier(model, train_df, test_df, **kwargs)
+        frontier = compute_frontier(model, train_df, test_df, quantiles=quantiles, **kwargs)
         champ_best = best_point(frontier, "champion")
         chall_best = best_point(frontier, "challenger")
 
@@ -65,20 +71,26 @@ def _one_parameter_sweep(model: Pipeline, train_df: pd.DataFrame, test_df: pd.Da
 def run_sensitivity(model: Pipeline, train_df: pd.DataFrame, test_df: pd.DataFrame,
                      lgd_range: np.ndarray | None = None,
                      opex_range: np.ndarray | None = None,
-                     capital_range: np.ndarray | None = None) -> pd.DataFrame:
+                     capital_range: np.ndarray | None = None,
+                     quantiles: np.ndarray | None = None) -> pd.DataFrame:
     """
     Runs a one-at-a-time sensitivity sweep across LGD, opex rate, and capital
     rate, holding the other two at base case for each sweep. Returns a single
     combined dataframe (filter by swept_parameter to isolate one sweep).
+
+    quantiles: forwards to compute_frontier's grid granularity for every
+    sweep point (default: compute_frontier's own default, 25 points from
+    0.50 to 0.99). Pass a finer grid to validate that a found optimum
+    approval rate is a genuine peak, not a coarse-grid artifact.
     """
     lgd_range = DEFAULT_LGD_RANGE if lgd_range is None else lgd_range
     opex_range = DEFAULT_OPEX_RANGE if opex_range is None else opex_range
     capital_range = DEFAULT_CAPITAL_RANGE if capital_range is None else capital_range
 
     results = [
-        _one_parameter_sweep(model, train_df, test_df, "lgd", lgd_range),
-        _one_parameter_sweep(model, train_df, test_df, "opex_rate", opex_range),
-        _one_parameter_sweep(model, train_df, test_df, "capital_rate", capital_range),
+        _one_parameter_sweep(model, train_df, test_df, "lgd", lgd_range, quantiles=quantiles),
+        _one_parameter_sweep(model, train_df, test_df, "opex_rate", opex_range, quantiles=quantiles),
+        _one_parameter_sweep(model, train_df, test_df, "capital_rate", capital_range, quantiles=quantiles),
     ]
     return pd.concat(results, ignore_index=True)
 
