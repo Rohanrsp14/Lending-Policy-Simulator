@@ -14,7 +14,7 @@ screen — deployed as a Streamlit dashboard.
 Built incrementally via small, sprint-sized PRs rather than one large drop:
 
 - [x] **PR 1 — Data ingestion**: load, filter, clean, and label the raw Lending Club export.
-- [ ] PR 2 — Champion/challenger RAROC model + eval harness
+- [x] **PR 2 — Champion/challenger model + eval harness**: rule-based cutoff vs. trained PD model, time-based split, RAROC on realized outcomes.
 - [ ] PR 3 — Vintage loss curve + approval/return frontier
 - [ ] PR 4 — Fair-lending parity screen
 - [ ] PR 5 — Streamlit dashboard
@@ -119,3 +119,33 @@ real 12GB+ file) so the cleaning/parsing/filtering logic is verified determinist
 fast, independent of whether the real data file is present.
 
 **Out of scope for this PR**: model logic, RAROC calculation, dashboard — those are PR 2+.
+
+### PR 2 description (champion/challenger model + eval harness)
+
+**What**: Adds `src/features.py` (issue-date parsing, time-based train/test split, feature
+prep) and `src/models.py` (champion = rule-based FICO cutoff, no model; challenger = trained
+logistic-regression PD model; RAROC computation; AUC/Gini/KS eval).
+
+**Why**: Champion vs. challenger here means the real, industry-standard thing — the current
+rule-based policy vs. a proposed statistical improvement — not two competing model types
+racing each other (that comparison already exists in Credit-Risk-Monitor). RAROC for both
+policies is computed from **realized, historical outcomes** on a held-out time-based test
+set, not from either policy's own predicted probability — this makes the two directly
+comparable on the same real ground truth rather than trusting either one's self-assessed risk.
+
+**Key decisions locked in this PR**:
+- Time-based split is mandatory (`issue_d` cutoff date), never random — loan performance and
+  applicant mix both drift 2007–2018, a random split would leak future information into training.
+- Champion's FICO cutoff (`CHAMPION_FICO_CUTOFF = 660`) is a stated, documented assumption
+  representing plausible current practice — not derived from any real institution's actual
+  policy. Flagged as an ask-first item in `CLAUDE.md` if this needs to change.
+- RAROC loss is computed from the real `defaulted` outcome and real `int_rate_frac`/`loan_amnt`
+  — no synthetic or model-estimated numbers feed the historical P&L.
+
+**Tests**: `tests/test_features.py` and `tests/test_models.py`, both against a synthetic
+fixture (`tests/conftest.py`) with a real, learnable FICO/default relationship — verifies the
+model actually trains, the time split has no overlap, and RAROC/eval metrics behave correctly
+at the boundaries (e.g. zero approvals, tighter cutoff never approves more).
+
+**Out of scope for this PR**: vintage curve, approval/return frontier, fair-lending screen,
+dashboard — those are PR 3+.
