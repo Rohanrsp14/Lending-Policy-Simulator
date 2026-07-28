@@ -20,7 +20,7 @@ Built incrementally via small, sprint-sized PRs rather than one large drop:
 - [x] **PR 2.3 — RAROC annualization fix**: fixes a real bug (RAROC >100%) surfaced by running PR 2.2 against real data.
 - [x] **PR 2.4 — RAROC-optimized threshold selection**: fixes a real finding — volume-matching isn't the same as RAROC-optimal.
 - [x] **PR 2.5 — Real time-to-default data**: adds last_pymnt_d + months_on_book, needed for a genuine (not synthetic) vintage curve.
-- [ ] PR 3 — Vintage loss curve + approval/return frontier
+- [x] **PR 3 — Vintage loss curve + symmetric approval/return frontier**: real time-to-default vintage analysis, plus a frontier that sweeps BOTH policies fairly.
 - [ ] PR 4 — Fair-lending parity screen
 - [ ] PR 5 — Streamlit dashboard
 - [ ] PR 6 — CI polish, docs, deploy
@@ -266,3 +266,42 @@ confirms the RAROC-optimized threshold never underperforms volume-matching on th
 it was optimized on (a built-by-construction guarantee, checked as a regression test).
 
 **Out of scope for this PR**: still PR 3+ for vintage curve, frontier, fair-lending, dashboard.
+
+### PR 2.5 description (real time-to-default data)
+
+**What**: Adds `last_pymnt_d` and derives `months_on_book` in `src/data_loader.py` — a real,
+data-derived proxy for time-to-default (Charged Off/Default) or time-to-payoff (Fully Paid).
+
+**Why**: PR 1 scoped the dataset to matured, known-outcome loans only, which meant every loan
+already has a terminal outcome — but no field capturing *when* it occurred, which a genuine
+vintage curve needs. Without this, PR 3 would have had to fall back on an illustrative/
+synthetic maturation curve instead of real data.
+
+**Tests**: 4 new tests (38 total) — months_on_book verified against a manual example, and a
+new data-quality filter (drops rows where `last_pymnt_d` predates `issue_d`) confirmed working.
+
+### PR 3 description (vintage curve + symmetric approval/return frontier)
+
+**What**: `src/vintage.py` computes cumulative default rate by months-on-book for each issue-
+year vintage, using real `months_on_book` data, plus a quick-read `vintage_summary`.
+`src/frontier.py` sweeps a range of target approval rates and computes **both** champion's
+FICO cutoff and challenger's PD threshold at each point (calibrated on train, applied to
+test) — fixing the asymmetry flagged after PR 2.4, where only challenger got a full
+RAROC-optimization sweep.
+
+**Why issue year, not grade, for vintage**: a vintage curve is fundamentally a time-based
+question ("are recent originations riskier than older ones?"). Grade is already a risk
+segmentation handled elsewhere in this project; slicing by grade here would just repeat that.
+
+**Why the frontier needed to be symmetric**: a real "approval/return frontier" has to let
+every policy explore its own tradeoff space — evaluating champion at one fixed point while
+sweeping challenger's isn't a fair comparison, and would have made any conclusion about which
+policy is "better" unreliable.
+
+**Tests**: 11 new tests (49 total) — vintage curve validated against a hand-checkable
+4-loan example (exact cumulative rates at known default months), monotonicity checked,
+frontier confirmed to actually sweep both policies (not just one), and `best_point`
+verified to select each policy's true RAROC-maximizing row.
+
+**Out of scope for this PR**: fair-lending parity screen and the Streamlit dashboard — PR 4
+and PR 5.

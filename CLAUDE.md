@@ -25,6 +25,25 @@ here should be presented as, or used as, an actual credit decisioning tool.
 - Every derived dataset must be traceable back to this raw source. No synthetic rows are
   ever mixed into the real dataset without an explicit, visible flag.
 
+## PR 3: vintage curve + symmetric approval/return frontier
+
+- `src/vintage.py`: vintage cohort = issue year (not grade -- see rationale below).
+  `compute_vintage_curve` builds cumulative default rate by months-on-book per vintage,
+  using real `months_on_book` data (PR 2.5), with a static cohort denominator (standard
+  vintage-curve convention, not survival-adjusted). `vintage_summary` gives a one-row-per-
+  vintage quick read (ultimate default rate, median months-to-default).
+- **Why issue year, not grade, defines a vintage**: a vintage curve answers "are more recent
+  originations riskier than older ones, and are we being fooled by immature loans looking
+  clean" -- a time-based question by definition. Grade is already a risk segmentation handled
+  elsewhere (champion/challenger decisioning); re-slicing by grade here would just repeat that,
+  not add a genuine vintage analysis.
+- `src/frontier.py`: `compute_frontier` sweeps a range of target approval rates and computes
+  BOTH champion's FICO cutoff and challenger's PD threshold (calibrated on train, applied to
+  test) at each point -- fixing an asymmetry flagged after PR 2.4, where champion was only
+  ever evaluated at a single calibrated cutoff while challenger got a full RAROC-optimization
+  sweep. `best_point` finds each policy's own RAROC-maximizing point on its own frontier, for
+  a fair, symmetric final comparison.
+
 ## PR 2.5: real time-to-default data for the vintage curve
 
 PR 1's own scoping decision (matured, known-outcome loans only) meant every loan in this
