@@ -16,6 +16,7 @@ Built incrementally via small, sprint-sized PRs rather than one large drop:
 - [x] **PR 1 — Data ingestion**: load, filter, clean, and label the raw Lending Club export.
 - [x] **PR 2 — Champion/challenger model + eval harness**: rule-based cutoff vs. trained PD model, time-based split, RAROC on realized outcomes.
 - [x] **PR 2.1 — Volume-matched calibration + expanded risk features**: fixes the reject-inference finding from running PR 2 against real data.
+- [x] **PR 2.2 — Amortized revenue, more features, platform-maturity scope**: fixes 3 limitations found reviewing PR 2.1's real results.
 - [ ] PR 3 — Vintage loss curve + approval/return frontier
 - [ ] PR 4 — Fair-lending parity screen
 - [ ] PR 5 — Streamlit dashboard
@@ -174,3 +175,32 @@ rate (within tolerance) and that champion/challenger land on comparable approval
 both are volume-matched.
 
 **Out of scope for this PR**: still PR 3+ for vintage curve, frontier, fair-lending, dashboard.
+
+### PR 2.2 description (amortized revenue, more features, platform-maturity scope)
+
+**What**: Fixes three real limitations identified reviewing PR 2.1's actual output on the
+708K-loan dataset:
+1. `src/models.py::amortized_interest` replaces a flat `loan_amnt * rate * fudge_factor`
+   revenue approximation with a real fixed-payment installment amortization formula.
+   Documented limitation: still assumes full-term repayment, which overstates revenue on
+   loans that default early — intentionally deferred to PR 3's vintage/time-on-book work,
+   not silently ignored.
+2. Adds `home_ownership`, `verification_status`, `mort_acc`, `total_acc` — real fields
+   already in the raw data — to strengthen the challenger model (AUC was a modest 0.63).
+3. Scopes data to loans issued 2012 or later (`MIN_ISSUE_YEAR` in `src/data_loader.py`) —
+   Lending Club's 2007-2011 originations were a small, immature platform with materially
+   different underwriting than the post-2012 period; mixing regimes added noise.
+
+**Why**: An interviewer reviewing the RAROC math would catch the amortization gap
+immediately, and the AUC/regime-mixing issues were visible the moment PR 2.1 ran against
+real data — better to name and fix these now than present numbers that don't hold up to a
+second look.
+
+**Tests**: 4 new tests (32 total) — amortized interest validated against a manually
+computed example, confirms longer terms produce more total interest, confirms RAROC now
+uses the amortized figure, and confirms the platform-maturity filter excludes pre-2012 loans.
+
+**Out of scope for this PR**: fully correcting revenue for early-default truncation (needs
+per-loan time-to-default, which is PR 3's job) and any model-type change (still logistic
+regression, by design — see PR 2's rationale for why this stays a rules-vs-model comparison
+rather than a model-vs-model one).

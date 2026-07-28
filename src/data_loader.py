@@ -57,7 +57,18 @@ REQUIRED_COLUMNS = [
     "open_acc",
     "pub_rec",
     "inq_last_6mths",
+    "home_ownership",
+    "verification_status",
+    "mort_acc",
+    "total_acc",
 ]
+
+# Lending Club's earliest years (2007-2011) were a small, immature platform
+# with materially different underwriting practices and origination volume
+# than the post-2012 period. Mixing these regimes into one model adds noise
+# and is a known contributor to modest AUC. Scoped out as a stated, locked
+# assumption -- see CLAUDE.md.
+MIN_ISSUE_YEAR = 2012
 
 
 class IngestionError(Exception):
@@ -104,6 +115,11 @@ def _parse_int_rate(int_rate: pd.Series) -> pd.Series:
 def _parse_revol_util(revol_util: pd.Series) -> pd.Series:
     """'45.2%' -> 0.452 (float). Same format as int_rate; kept separate for clarity."""
     return _parse_int_rate(revol_util)
+
+
+def _parse_issue_year(issue_d: pd.Series) -> pd.Series:
+    """'Jan-2018' -> 2018 (int). Used only for the platform-maturity scope filter."""
+    return pd.to_datetime(issue_d, format="%b-%Y", errors="coerce").dt.year
 
 
 def _parse_emp_length(emp_length: pd.Series) -> pd.Series:
@@ -158,6 +174,17 @@ def clean_and_scope(df: pd.DataFrame, logger: RunLogger) -> pd.DataFrame:
         kept_statuses=sorted(KEEP_STATUSES),
     )
 
+    # Scope 3: platform-maturity filter -- exclude LC's earliest, immature years
+    rows_before_maturity = len(df)
+    issue_year = _parse_issue_year(df["issue_d"])
+    df = df[issue_year >= MIN_ISSUE_YEAR].copy()
+    logger.log(
+        "filter_platform_maturity",
+        rows_in=rows_before_maturity,
+        rows_out=len(df),
+        min_issue_year=MIN_ISSUE_YEAR,
+    )
+
     # Parse fields
     df["term_months"] = _parse_term(df["term"])
     df["int_rate_frac"] = _parse_int_rate(df["int_rate"])
@@ -171,7 +198,8 @@ def clean_and_scope(df: pd.DataFrame, logger: RunLogger) -> pd.DataFrame:
     rows_before_na = len(df)
     key_fields = ["loan_amnt", "term_months", "int_rate_frac", "annual_inc", "dti",
                   "fico_range_low", "fico_range_high", "revol_util_frac",
-                  "delinq_2yrs", "open_acc", "pub_rec", "inq_last_6mths"]
+                  "delinq_2yrs", "open_acc", "pub_rec", "inq_last_6mths",
+                  "mort_acc", "total_acc"]
     df = df.dropna(subset=key_fields).copy()
     logger.log("drop_incomplete_rows", rows_in=rows_before_na, rows_out=len(df), fields=key_fields)
 

@@ -21,8 +21,8 @@ def sample_loans_df():
     pd_true = np.clip(1 / (1 + np.exp((fico_avg - 660) / 30)) * 0.5, 0.02, 0.6)
     defaulted = rng.random(n) < pd_true
 
-    months = rng.integers(1, 145, n)  # 1-144 months after Jan 2007
-    issue_dates = pd.Timestamp("2007-01-01") + pd.to_timedelta(months * 30, unit="D")
+    months = rng.integers(1, 97, n)  # 1-96 months after Jan 2012 (matches real 2012+ scope)
+    issue_dates = pd.Timestamp("2012-01-01") + pd.to_timedelta(months * 30, unit="D")
 
     df = pd.DataFrame({
         "fico_avg": fico_avg,
@@ -37,6 +37,10 @@ def sample_loans_df():
         "open_acc": rng.integers(2, 20, n).astype(float),
         "pub_rec": rng.poisson(0.1, n).astype(float),
         "inq_last_6mths": rng.poisson(0.8, n).astype(float),
+        "mort_acc": rng.integers(0, 4, n).astype(float),
+        "total_acc": rng.integers(5, 35, n).astype(float),
+        "home_ownership": rng.choice(["RENT", "MORTGAGE", "OWN"], n),
+        "verification_status": rng.choice(["Verified", "Not Verified", "Source Verified"], n),
         "purpose": rng.choice(["debt_consolidation", "credit_card", "home_improvement", "other"], n),
         "defaulted": defaulted.astype(int),
         "issue_d": issue_dates.strftime("%b-%Y"),
