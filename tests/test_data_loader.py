@@ -49,6 +49,7 @@ def raw_fixture(tmp_path):
         "total_acc": [15, 8, 20, 6, 12, 9, 11],
         # last_pymnt_d after issue_d for all except one intentionally invalid row (Apr-2018 row)
         "last_pymnt_d": ["Dec-2019", "Sep-2018", "Nov-2020", "Feb-2018", "Aug-2018", "Dec-2020", "May-2009"],
+        "addr_state": ["CA", "TX", "NY", "FL", "TX", "CA", "TX"],
     })
     path = tmp_path / "raw.csv"
     data.to_csv(path, index=False)

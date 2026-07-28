@@ -31,7 +31,7 @@ Built incrementally via small, sprint-sized PRs rather than one large drop:
 - [x] **PR 3.1 — Pre-pricing risk model**: removes int_rate_frac as a challenger feature — a real methodological fix found reviewing PR 3's frontier result.
 - [x] **Model Validation Report** (`docs/MODEL_VALIDATION.md`): independent-style review of everything built so far — conceptual soundness, discriminatory power, outcomes analysis, a full issue/remediation log, and an explicit not-yet-production-ready verdict.
 - [x] **RAROC Sensitivity Analysis** (`src/sensitivity.py`): stress-tests whether champion's RAROC advantage over challenger holds across a plausible range of the LGD/opex/capital assumptions.
-- [ ] PR 4 — Fair-lending parity screen (BISG-style, explicitly illustrative given data limitations)
+- [x] **PR 4 — Fair-lending parity screen** (`src/fair_lending.py`): geography-only, BISG-style illustrative proxy + four-fifths ratio, run across all three policies. **Explicitly illustrative, not evidentiary** — see CLAUDE.md.
 - [ ] Path to Production doc
 - [ ] PSI drift monitoring
 - [ ] PR 5 — Streamlit dashboard
