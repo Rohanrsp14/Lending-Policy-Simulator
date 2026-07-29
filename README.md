@@ -35,9 +35,9 @@ Built incrementally via small, sprint-sized PRs rather than one large drop:
 - [x] **RAROC Sensitivity Analysis** (`src/sensitivity.py`): stress-tests whether champion's RAROC advantage over challenger holds across a plausible range of the LGD/opex/capital assumptions.
 - [x] **PR 4 — Fair-lending parity screen** (`src/fair_lending.py`): geography-only, BISG-style illustrative proxy + four-fifths ratio, run across all three policies. **Explicitly illustrative, not evidentiary** — see CLAUDE.md.
 - [x] **Path to Production doc** (`docs/PATH_TO_PRODUCTION.md`): stage-by-stage map of what's reusable methodology vs. what needs to change for a real deployment, plus the governance requirements a real production consideration would need.
-- [ ] PSI drift monitoring
-- [ ] PR 5 — Streamlit dashboard
+- [x] **PR 5 — Streamlit dashboard** (`dashboard/app.py`): the clickable frontend — champion vs. challenger (interactive), vintage curve, approval/return frontier, RAROC sensitivity, fair-lending screen, and the embedded Model Validation report, all in one place.
 - [ ] PR 6 — CI polish, docs, deploy
+- [ ] PSI drift monitoring
 
 ## Dataset
 
@@ -104,6 +104,17 @@ python -m src.data_loader
 
 This produces `data/processed/loans_clean.parquet` and writes a structured run log to
 `logs/ingestion_runs.jsonl`.
+
+Launch the interactive dashboard:
+
+```bash
+streamlit run dashboard/app.py
+```
+
+Opens at `http://localhost:8501`. First load trains the challenger model and computes the
+frontier/vintage/sensitivity/parity views once, then caches them for the rest of the
+session — the sensitivity sweep in particular takes a bit the first time, by design (it's a
+real computation, not instant).
 
 Run tests any time with:
 
