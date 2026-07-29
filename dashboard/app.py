@@ -122,6 +122,10 @@ st.markdown(f"""
         background-color: {FLAG_BG}; border-left: 4px solid {FLAG}; border-radius: 6px;
         padding: 14px 18px; font-size: 16px; color: {FLAG}; margin-bottom: 16px;
     }}
+    .sample-callout {{
+        background-color: #F1F5F9; border-left: 4px solid #64748B; border-radius: 6px;
+        padding: 14px 18px; font-size: 16px; color: #334155; margin-bottom: 16px;
+    }}
     .finding-banner {{
         background-color: {CARD_BG}; border: 1px solid {CARD_BORDER};
         border-left: 4px solid {CHAMPION}; border-radius: 8px;
@@ -257,7 +261,7 @@ st.caption(
 
 if is_sample:
     st.markdown(f"""
-    <div class="warn-callout">
+    <div class="sample-callout">
     📎 This public demo runs on a random <b>{len(df):,}-loan sample</b> of the full
     685,806-loan dataset analyzed in <b>docs/MODEL_VALIDATION.md</b>. Numbers here will
     differ slightly from the full analysis — the full-dataset results are what every
