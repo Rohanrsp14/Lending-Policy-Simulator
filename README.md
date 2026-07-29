@@ -14,7 +14,9 @@ screen — deployed as a Streamlit dashboard.
 regression, AUC 0.64) does not clearly beat it once revenue mix and realistic cost
 assumptions are accounted for — real predictive power did not translate into real
 economic value here. See [docs/MODEL_VALIDATION.md](docs/MODEL_VALIDATION.md) for the
-full independent-style review, including every issue found and fixed along the way.
+full independent-style review, including every issue found and fixed along the way, and
+[docs/PATH_TO_PRODUCTION.md](docs/PATH_TO_PRODUCTION.md) for exactly what would need to
+change, stage by stage, to move any of this toward a real deployment.
 
 ## Status
 
@@ -32,7 +34,7 @@ Built incrementally via small, sprint-sized PRs rather than one large drop:
 - [x] **Model Validation Report** (`docs/MODEL_VALIDATION.md`): independent-style review of everything built so far — conceptual soundness, discriminatory power, outcomes analysis, a full issue/remediation log, and an explicit not-yet-production-ready verdict.
 - [x] **RAROC Sensitivity Analysis** (`src/sensitivity.py`): stress-tests whether champion's RAROC advantage over challenger holds across a plausible range of the LGD/opex/capital assumptions.
 - [x] **PR 4 — Fair-lending parity screen** (`src/fair_lending.py`): geography-only, BISG-style illustrative proxy + four-fifths ratio, run across all three policies. **Explicitly illustrative, not evidentiary** — see CLAUDE.md.
-- [ ] Path to Production doc
+- [x] **Path to Production doc** (`docs/PATH_TO_PRODUCTION.md`): stage-by-stage map of what's reusable methodology vs. what needs to change for a real deployment, plus the governance requirements a real production consideration would need.
 - [ ] PSI drift monitoring
 - [ ] PR 5 — Streamlit dashboard
 - [ ] PR 6 — CI polish, docs, deploy
