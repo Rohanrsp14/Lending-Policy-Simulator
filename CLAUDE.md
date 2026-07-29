@@ -25,6 +25,40 @@ here should be presented as, or used as, an actual credit decisioning tool.
 - Every derived dataset must be traceable back to this raw source. No synthetic rows are
   ever mixed into the real dataset without an explicit, visible flag.
 
+## PR 4: Fair-lending parity screen (illustrative only — read this before using it)
+
+Lending Club's data has no protected-class field and no borrower name. A real BISG (Bayesian
+Improved Surname Geocoding) proxy needs BOTH a surname-based probability AND a geography-based
+probability. With no name field at all, only the geography leg is implementable here.
+
+**`src/fair_lending.py` uses a FABRICATED, illustrative-only state-level probability table --
+NOT real Census Bureau demographic data.** It demonstrates the mechanics of BISG's Bayesian
+draw and the four-fifths parity rule correctly -- it does not, and cannot, provide evidence
+of real disparate impact on this or any real population. Every script and doc that surfaces
+this screen's output must repeat this caveat, not state it once and move on.
+
+**What would be needed for a real version**: actual Census Bureau surname-race distribution
+files, actual Census block-group/ZIP demographic data, and a real borrower name field --
+none of which exist in this project or dataset. Named explicitly as a gap in
+`docs/MODEL_VALIDATION.md`.
+
+**Why build it anyway**: the mechanism itself (Bayesian proxy assignment, four-fifths ratio,
+flagging below-threshold policies) is real, reusable, and correctly implemented -- useful for
+showing HOW a fair-lending screen works and integrates with a champion/challenger comparison,
+which is the actual skill being demonstrated here, separate from the specific numbers.
+
+## Performance fix: redundant model inference in compute_frontier
+
+`compute_frontier` was calling `calibrate_pd_threshold()` inside its quantile loop, which
+internally re-ran a full `model.predict_proba()` over the entire 218K-row training set on
+EVERY iteration -- even though the model's predictions never change within a single frontier
+call, only the quantile threshold sliced from them does. With the 100-point fine grid across
+a 15-combination sensitivity sweep (`scripts/run_sensitivity.py`), that was 1,500 redundant
+full-model inference passes, and the likely reason that run could take well over 10 minutes.
+Fixed by computing `predict_pd(model, train_df)` once per `compute_frontier` call and reusing
+it for every quantile point -- mathematically identical result, no behavior change (all 54
+tests pass unchanged), just eliminates ~99% of the redundant inference work.
+
 ## Finer-grid validation of the sensitivity analysis's optimum
 
 The first sensitivity run found an identical best-approval-rate (54.48%/98.42%) at every

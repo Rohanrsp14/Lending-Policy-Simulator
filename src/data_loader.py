@@ -62,6 +62,7 @@ REQUIRED_COLUMNS = [
     "mort_acc",
     "total_acc",
     "last_pymnt_d",
+    "addr_state",
 ]
 
 # Lending Club's earliest years (2007-2011) were a small, immature platform

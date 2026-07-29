@@ -77,7 +77,15 @@ Seven real issues, each found by checking results against real data rather than 
 
 ## 8. Fair Lending Review
 
-**Not yet built.** Lending Club's data has no protected-class field. Any fair-lending screen built on this data will need to use either a fully synthetic proxy (clearly labeled as illustrative-only) or a BISG-style (Bayesian Improved Surname Geocoding) proxy consistent with real regulatory practice — but even BISG here would be illustrative, not evidentiary, given the data's limitations. Scoped as a near-term next step, not yet complete.
+**Built (`src/fair_lending.py`), but explicitly illustrative, not evidentiary.** Lending
+Club's data has no protected-class field and no borrower name, so a full BISG proxy (which
+needs both a surname leg and a geography leg) isn't possible here — only the geography leg
+is implemented, using a state-level probability table that is fabricated for demonstration,
+not sourced from real Census Bureau data. The mechanics (Bayesian proxy draw, four-fifths
+ratio, per-policy flagging) are real and correctly implemented; the specific numbers this
+screen produces on this dataset say nothing about real disparate impact, on this or any
+population. A real version would need actual Census surname/geography race distribution
+data and a real borrower name field — neither exists in this project.
 
 ## 9. Assumptions Inventory
 
