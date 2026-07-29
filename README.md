@@ -9,6 +9,18 @@ screen — deployed as a Streamlit dashboard.
 **This is a portfolio/analytical project, not a production underwriting system.** See
 [CLAUDE.md](CLAUDE.md) for full data provenance and project rules.
 
+**Live demo:** [lending-policy-simulator.streamlit.app](https://lending-policy-simulator.streamlit.app)
+
+<p>
+  <a href="https://lending-policy-simulator.streamlit.app">
+    <img src="https://img.shields.io/badge/Live%20Demo-FF4B4B?style=flat-square&logo=streamlit&logoColor=white"/>
+  </a>
+  <img src="https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Streamlit-FF4B4B?style=flat-square&logo=streamlit&logoColor=white"/>
+  <img src="https://img.shields.io/badge/scikit--learn-F7931E?style=flat-square&logo=scikitlearn&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Lending%20Club%20Data-2E8B57?style=flat-square"/>
+</p>
+
 **Key finding (read before quoting any RAROC number from this project):** the champion
 (a simple FICO cutoff) has a genuine RAROC-maximizing point; the challenger (a logistic
 regression, AUC 0.64) does not clearly beat it once revenue mix and realistic cost
@@ -36,7 +48,7 @@ Built incrementally via small, sprint-sized PRs rather than one large drop:
 - [x] **PR 4 — Fair-lending parity screen** (`src/fair_lending.py`): geography-only, BISG-style illustrative proxy + four-fifths ratio, run across all three policies. **Explicitly illustrative, not evidentiary** — see CLAUDE.md.
 - [x] **Path to Production doc** (`docs/PATH_TO_PRODUCTION.md`): stage-by-stage map of what's reusable methodology vs. what needs to change for a real deployment, plus the governance requirements a real production consideration would need.
 - [x] **PR 5 — Streamlit dashboard** (`dashboard/app.py`): the clickable frontend — champion vs. challenger (interactive), vintage curve, approval/return frontier, RAROC sensitivity, fair-lending screen, and the embedded Model Validation report, all in one place.
-- [ ] PR 6 — CI polish, docs, deploy
+- [x] **PR 6 — Deploy**: live at [lending-policy-simulator.streamlit.app](https://lending-policy-simulator.streamlit.app).
 - [ ] PSI drift monitoring
 
 ## Dataset
@@ -115,6 +127,40 @@ Opens at `http://localhost:8501`. First load trains the challenger model and com
 frontier/vintage/sensitivity/parity views once, then caches them for the rest of the
 session — the sensitivity sweep in particular takes a bit the first time, by design (it's a
 real computation, not instant).
+
+## Deploying (public demo)
+
+The full 685,806-loan dataset isn't committed to this repo (too large, and Lending Club's
+redistribution terms don't clearly cover republishing it at that scale). The public
+deployment runs on a smaller, clearly-labeled ~100K-loan random sample instead — the
+dashboard shows an explicit banner when it's running on the sample, so this is never silent.
+**Every finding in `docs/MODEL_VALIDATION.md` is based on the full dataset, run locally** —
+the sample exists only so the public demo is interactive.
+
+To generate the demo sample (run locally, where you have the full dataset):
+
+```bash
+python -m scripts.create_demo_sample
+```
+
+This writes `data/processed/loans_demo_sample.parquet` — small enough to commit (a
+`.gitignore` exception allows this one specific file through). Commit and push it:
+
+```bash
+git add data/processed/loans_demo_sample.parquet
+git commit -m "Add demo sample dataset for public deployment"
+git push
+```
+
+Then deploy on [Streamlit Community Cloud](https://share.streamlit.io):
+1. Sign in with GitHub, click "New app"
+2. Select this repo, branch `main`, and `dashboard/app.py` as the entry point
+3. Deploy — the app will use the committed sample automatically, since the full dataset
+   won't be present on Streamlit Cloud's filesystem (the fallback logic in
+   `dashboard/app.py::load_data()` handles this)
+4. Update the "Live demo" link at the top of this README with the deployed URL
+
+**Status: deployed** at [lending-policy-simulator.streamlit.app](https://lending-policy-simulator.streamlit.app).
 
 Run tests any time with:
 
