@@ -69,6 +69,28 @@ so `scripts/run_sensitivity.py` now runs a 100-point grid (vs. the original 25) 
 reports whether the optimum approval rate is identical across every sweep at the finer
 resolution too, rather than leaving that as an unverified assumption.
 
+## PR 5: Streamlit dashboard
+
+`dashboard/app.py` is the clickable frontend for everything built in `src/` — the piece a
+non-technical viewer (a recruiter, a VP) can actually interact with, rather than reading code
+or terminal output. Seven tabs: Overview, Champion vs. Challenger (interactive slider),
+Vintage Curve, Approval/Return Frontier, RAROC Sensitivity, Fair-Lending Screen (with the
+illustrative-only warning repeated prominently, not just in code comments), and Model
+Validation (the full report embedded directly in the app, not just linked).
+
+Expensive steps (loading data, training the challenger, computing the frontier/vintage/
+sensitivity/parity views) are wrapped in `@st.cache_data`/`@st.cache_resource` so they run
+once per session, not on every interaction. The sensitivity sweep uses a smaller grid (15
+points) than the full CLI script (100 points) specifically to keep the dashboard responsive
+— still a real sweep, not a placeholder, just sized for interactive use rather than a batch
+report.
+
+Every function path the dashboard calls was sanity-checked end-to-end against a synthetic
+dataset matching the real schema before shipping, independent of the existing pytest suite
+(which doesn't cover `dashboard/app.py` directly, since Streamlit apps aren't naturally
+unit-testable the same way — the underlying `src/` functions they call are already fully
+covered by the 64 existing tests).
+
 ## RAROC Sensitivity Analysis
 
 `src/sensitivity.py` stress-tests whether champion's RAROC advantage over challenger
