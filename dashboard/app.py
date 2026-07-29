@@ -6,6 +6,13 @@ viewers can explore champion vs. challenger, the vintage curve, the
 approval/return frontier, RAROC sensitivity, and the (explicitly
 illustrative) fair-lending screen without reading any code.
 
+Theme: forced via CSS injection targeting Streamlit's actual component
+selectors (data-testid attributes), NOT reliant on .streamlit/config.toml
+being detected -- that alone proved unreliable across environments (some
+browsers/systems override it with an auto dark-mode preference). This is
+the belt-and-suspenders version: config.toml sets the default, CSS forces
+it regardless.
+
 Run with:
     streamlit run dashboard/app.py
 """
@@ -17,7 +24,6 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-# Allow running as `streamlit run dashboard/app.py` from the repo root
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.fair_lending import assign_geography_proxy, run_parity_screen
@@ -42,44 +48,98 @@ from src.vintage import compute_vintage_curve, vintage_summary
 SPLIT_DATE = "2015-01-01"
 
 # ---------------------------------------------------------------------------
-# Theme -- dark, serious risk-desk aesthetic, consistent with the project's
-# earlier standalone demo artifact.
+# Palette -- a clean, muted "fintech product" look, not a terminal.
 # ---------------------------------------------------------------------------
-COLOR_BG = "#0B1220"
-COLOR_PANEL = "#111B2E"
-COLOR_LINE = "#22304A"
-COLOR_TEXT = "#E8ECF1"
-COLOR_MUTED = "#8B96A8"
-COLOR_GOLD = "#C9A961"    # champion / money
-COLOR_TEAL = "#4FD1C5"    # challenger / approve
-COLOR_ROSE = "#E0667A"    # risk / decline / flag
+BG = "#FAFAFA"
+CARD_BG = "#FFFFFF"
+CARD_BORDER = "#E5E7EB"
+TEXT_PRIMARY = "#111827"
+TEXT_MUTED = "#6B7280"
+CHAMPION = "#B45309"     # warm amber -- strong contrast on white
+CHAMPION_BG = "#FEF3E2"
+CHALLENGER = "#0F766E"   # deep teal
+CHALLENGER_BG = "#E6F5F3"
+FLAG = "#B91C1C"
+FLAG_BG = "#FEF2F2"
 
 st.set_page_config(page_title="Lending Policy Simulator", layout="wide", page_icon="📊")
 
 st.markdown(f"""
 <style>
-    .stApp {{ background-color: {COLOR_BG}; color: {COLOR_TEXT}; }}
-    [data-testid="stSidebar"] {{ background-color: {COLOR_PANEL}; }}
-    .disclaimer {{
-        border-left: 3px solid {COLOR_GOLD}; padding: 10px 16px; font-size: 13px;
-        color: {COLOR_MUTED}; background: rgba(201,169,97,0.06); border-radius: 4px;
-        margin-bottom: 12px;
+    /* Force light theme regardless of system/browser dark-mode detection */
+    .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"],
+    .main, section.main {{
+        background-color: {BG} !important;
+        color: {TEXT_PRIMARY} !important;
     }}
-    .flag-warning {{
-        border-left: 3px solid {COLOR_ROSE}; padding: 12px 16px; font-size: 14px;
-        color: {COLOR_ROSE}; background: rgba(224,102,122,0.08); border-radius: 4px;
-        margin-bottom: 16px;
+    [data-testid="stSidebar"] {{ background-color: {CARD_BG} !important; }}
+    h1, h2, h3, h4, h5, p, span, div, label {{ color: {TEXT_PRIMARY}; }}
+
+    /* Tabs */
+    [data-baseweb="tab-list"] {{ gap: 4px; border-bottom: 1px solid {CARD_BORDER}; }}
+    [data-baseweb="tab"] {{
+        color: {TEXT_MUTED} !important; font-weight: 500; padding: 10px 16px;
     }}
-    .metric-card {{
-        background: {COLOR_PANEL}; border: 1px solid {COLOR_LINE}; border-radius: 8px;
-        padding: 16px; text-align: center;
+    [aria-selected="true"] {{ color: {CHAMPION} !important; font-weight: 700 !important; }}
+
+    /* Native st.metric -- force readable colors as a fallback where used */
+    [data-testid="stMetricValue"] {{ color: {TEXT_PRIMARY} !important; font-weight: 700; }}
+    [data-testid="stMetricLabel"] {{ color: {TEXT_MUTED} !important; }}
+
+    /* Dataframes / tables */
+    [data-testid="stDataFrame"], [data-testid="stTable"] {{
+        background-color: {CARD_BG} !important;
+    }}
+
+    /* Custom hero card */
+    .hero-card {{
+        background-color: {CARD_BG}; border: 1px solid {CARD_BORDER};
+        border-radius: 12px; padding: 24px 28px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }}
+    .hero-label {{
+        font-size: 13px; font-weight: 700; letter-spacing: 0.04em;
+        text-transform: uppercase; padding: 4px 10px; border-radius: 6px;
+        display: inline-block; margin-bottom: 12px;
+    }}
+    .hero-value {{ font-size: 40px; font-weight: 800; line-height: 1.1; }}
+    .hero-sub {{ font-size: 14px; color: {TEXT_MUTED}; margin-top: 4px; }}
+    .info-callout {{
+        background-color: #EFF6FF; border-left: 4px solid #2563EB; border-radius: 6px;
+        padding: 12px 16px; font-size: 14px; color: #1E3A8A; margin-bottom: 16px;
+    }}
+    .warn-callout {{
+        background-color: {FLAG_BG}; border-left: 4px solid {FLAG}; border-radius: 6px;
+        padding: 12px 16px; font-size: 14px; color: {FLAG}; margin-bottom: 16px;
+    }}
+    .finding-banner {{
+        background-color: {CARD_BG}; border: 1px solid {CARD_BORDER};
+        border-left: 4px solid {CHAMPION}; border-radius: 8px;
+        padding: 18px 22px; margin: 16px 0 24px;
     }}
 </style>
 """, unsafe_allow_html=True)
 
 
+def hero_card(label: str, value: str, sub: str, color: str, bg: str):
+    st.markdown(f"""
+    <div class="hero-card">
+        <span class="hero-label" style="background-color:{bg}; color:{color};">{label}</span>
+        <div class="hero-value" style="color:{color};">{value}</div>
+        <div class="hero-sub">{sub}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def info_callout(text: str):
+    st.markdown(f'<div class="info-callout">ℹ️ {text}</div>', unsafe_allow_html=True)
+
+
+def warn_callout(text: str):
+    st.markdown(f'<div class="warn-callout">⚠️ {text}</div>', unsafe_allow_html=True)
+
+
 # ---------------------------------------------------------------------------
-# Cached data / model loading -- expensive steps run once per session.
+# Cached data / model loading
 # ---------------------------------------------------------------------------
 @st.cache_data(show_spinner="Loading cleaned dataset...")
 def load_data():
@@ -109,10 +169,8 @@ def get_vintage(df):
     return compute_vintage_curve(df), vintage_summary(df)
 
 
-@st.cache_data(show_spinner="Running the RAROC sensitivity sweep (this takes a bit)...")
+@st.cache_data(show_spinner="Running the RAROC sensitivity sweep (takes a bit longer)...")
 def get_sensitivity(_model, train_df, test_df):
-    # Smaller grid than the full CLI script, for a responsive dashboard --
-    # still a real sweep, just fewer points for interactive use.
     quantiles = np.linspace(0.50, 0.99, 15)
     return run_sensitivity(_model, train_df, test_df, quantiles=quantiles)
 
@@ -131,6 +189,18 @@ def get_parity(_model, df, train_df, test_df):
     return run_parity_screen(df_with_proxy, masks)
 
 
+def plotly_layout(fig, height=450, xaxis_title="", yaxis_title=""):
+    fig.update_layout(
+        template="plotly_white", height=height,
+        paper_bgcolor=CARD_BG, plot_bgcolor=CARD_BG,
+        font=dict(color=TEXT_PRIMARY),
+        xaxis_title=xaxis_title, yaxis_title=yaxis_title,
+        margin=dict(t=20, b=40, l=40, r=20),
+        legend=dict(bgcolor="rgba(0,0,0,0)"),
+    )
+    return fig
+
+
 # ---------------------------------------------------------------------------
 # Load everything
 # ---------------------------------------------------------------------------
@@ -142,68 +212,94 @@ vintage_curve, vintage_summ = get_vintage(df)
 
 champ_best = best_point(frontier_df, "champion")
 chall_best = best_point(frontier_df, "challenger")
+auc = evaluate_challenger(model, test_df)["auc"]
 
 # ---------------------------------------------------------------------------
 # Header
 # ---------------------------------------------------------------------------
 st.title("📊 Lending Policy Simulator")
-st.markdown(
+st.caption(
     "A champion/challenger consumer-lending policy simulator, built on real, public "
-    "**Lending Club** loan-level data. Portfolio/analytical project — not a production "
-    "underwriting system."
+    "Lending Club loan-level data. **Portfolio/analytical project — not a production "
+    "underwriting system.**"
 )
+
 st.markdown(f"""
-<div class="disclaimer">
-<b>Key finding:</b> the champion (a simple FICO cutoff) has a genuine RAROC-maximizing
-point; the challenger (a logistic regression, AUC {evaluate_challenger(model, test_df)['auc']:.2f})
-does not clearly beat it once revenue mix and realistic cost assumptions are accounted for —
-real predictive power did not translate into real economic value here. See the "Model
-Validation" tab for the full review.
+<div class="finding-banner">
+<b style="color:{CHAMPION};">🔑 The headline finding</b><br/>
+<b>Champion</b> (a simple credit-score cutoff) beats <b>Challenger</b> (a trained
+statistical model, AUC {auc:.2f}) on risk-adjusted return, even though the challenger is
+better at predicting who will default. A smarter model doesn't automatically mean a more
+profitable decision — that's the core lesson of this whole project. Full detail in the
+<b>Model Validation</b> tab.
 </div>
 """, unsafe_allow_html=True)
 
 tabs = st.tabs([
-    "Overview", "Champion vs. Challenger", "Vintage Curve", "Approval/Return Frontier",
-    "RAROC Sensitivity", "Fair-Lending Screen", "Model Validation",
+    "1. Overview", "2. Champion vs. Challenger", "3. Vintage Curve",
+    "4. Approval/Return Frontier", "5. RAROC Sensitivity",
+    "6. Fair-Lending Screen", "7. Model Validation",
 ])
 
 # ---------------------------------------------------------------------------
 # Tab 1: Overview
 # ---------------------------------------------------------------------------
 with tabs[0]:
-    st.subheader("Dataset")
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Loans loaded", f"{len(df):,}")
-    c2.metric("Train (before 2015)", f"{len(train_df):,}")
-    c3.metric("Test (2015+)", f"{len(test_df):,}")
-    c4.metric("Grades", "C – F")
+    st.subheader("What is this?")
     st.markdown(
-        "Scoped to near-prime/subprime grades (C–F), matured/known-outcome loans only, "
-        "issued 2012 or later. See `CLAUDE.md` in the repo for full data-provenance rules."
+        "This tool compares two different ways a lender could decide who to approve for "
+        "a loan: **Champion** — today's simple rule (\"approve if credit score is above "
+        "X\") — versus **Challenger** — a statistical model that weighs many factors at "
+        "once. The question this whole project answers: *does the smarter model actually "
+        "make the business more money, per dollar of risk taken?*"
     )
 
-    st.subheader("Champion's best point vs. Challenger's best point")
+    st.subheader("The data")
+    c1, c2, c3, c4 = st.columns(4)
+    for col, label, value in zip(
+        [c1, c2, c3, c4],
+        ["Loans analyzed", "Training period", "Test period", "Credit tier"],
+        [f"{len(df):,}", "before 2015", "2015 onward", "Near-prime / subprime"],
+    ):
+        col.markdown(f"""<div class="hero-card" style="padding:16px;">
+            <div class="hero-sub" style="margin:0;">{label}</div>
+            <div style="font-size:22px; font-weight:700; margin-top:4px;">{value}</div>
+        </div>""", unsafe_allow_html=True)
+
+    st.caption(
+        "Loans issued 2012 or later, with a known final outcome (paid off or "
+        "charged off). See the repo's `CLAUDE.md` for full data rules."
+    )
+
+    st.subheader("Each policy's best result")
+    st.caption(
+        "\"Best\" means: the approval threshold that gives that policy its own highest "
+        "risk-adjusted return (RAROC), found by testing many thresholds."
+    )
     c1, c2 = st.columns(2)
     with c1:
-        st.markdown(f"""<div class="metric-card">
-        <h4 style="color:{COLOR_GOLD}">Champion</h4>
-        <p>FICO cutoff ≥ {champ_best['champion_fico_cutoff']:.0f}</p>
-        <p>Approval rate: {champ_best['champion_approval_rate']*100:.1f}%</p>
-        <p style="font-size:24px; color:{COLOR_GOLD}"><b>RAROC: {champ_best['champion_raroc']*100:.1f}%</b></p>
-        </div>""", unsafe_allow_html=True)
+        hero_card(
+            "🏆 Champion", f"{champ_best['champion_raroc']*100:.1f}% RAROC",
+            f"Credit score ≥ {champ_best['champion_fico_cutoff']:.0f} · approves {champ_best['champion_approval_rate']*100:.1f}% of applicants",
+            CHAMPION, CHAMPION_BG,
+        )
     with c2:
-        st.markdown(f"""<div class="metric-card">
-        <h4 style="color:{COLOR_TEAL}">Challenger</h4>
-        <p>PD threshold ≤ {chall_best['challenger_pd_threshold']:.4f}</p>
-        <p>Approval rate: {chall_best['challenger_approval_rate']*100:.1f}%</p>
-        <p style="font-size:24px; color:{COLOR_TEAL}"><b>RAROC: {chall_best['challenger_raroc']*100:.1f}%</b></p>
-        </div>""", unsafe_allow_html=True)
+        hero_card(
+            "🤖 Challenger", f"{chall_best['challenger_raroc']*100:.1f}% RAROC",
+            f"Predicted risk ≤ {chall_best['challenger_pd_threshold']*100:.1f}% · approves {chall_best['challenger_approval_rate']*100:.1f}% of applicants",
+            CHALLENGER, CHALLENGER_BG,
+        )
 
 # ---------------------------------------------------------------------------
 # Tab 2: Champion vs. Challenger (interactive)
 # ---------------------------------------------------------------------------
 with tabs[1]:
-    st.subheader("Pick a target approval rate")
+    st.subheader("Try it yourself")
+    info_callout(
+        "Move the slider to set how many applicants get approved. Both policies are "
+        "recalculated live to hit that same approval rate — so you're always comparing "
+        "them fairly, at the same volume."
+    )
     target_rate = st.slider("Target approval rate", 0.50, 0.99, DEFAULT_TARGET_APPROVAL_RATE, 0.01)
 
     fico_cutoff = calibrate_fico_cutoff(train_df, target_rate)
@@ -213,134 +309,133 @@ with tabs[1]:
     champ_m = compute_raroc(test_df, champ_mask)
     chall_m = compute_raroc(test_df, chall_mask)
 
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Champion FICO cutoff", f"{fico_cutoff:.0f}")
-    c2.metric("Champion RAROC", f"{champ_m['raroc']*100:.1f}%")
-    c3.metric("Champion loss rate", f"{champ_m['loss_rate']*100:.2f}%")
+    c1, c2 = st.columns(2)
+    with c1:
+        hero_card("🏆 Champion", f"{champ_m['raroc']*100:.1f}% RAROC",
+                   f"Score cutoff {fico_cutoff:.0f} · loss rate {champ_m['loss_rate']*100:.2f}%",
+                   CHAMPION, CHAMPION_BG)
+    with c2:
+        hero_card("🤖 Challenger", f"{chall_m['raroc']*100:.1f}% RAROC",
+                   f"Risk threshold {pd_threshold*100:.1f}% · loss rate {chall_m['loss_rate']*100:.2f}%",
+                   CHALLENGER, CHALLENGER_BG)
 
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Challenger PD threshold", f"{pd_threshold:.4f}")
-    c2.metric("Challenger RAROC", f"{chall_m['raroc']*100:.1f}%")
-    c3.metric("Challenger loss rate", f"{chall_m['loss_rate']*100:.2f}%")
-
-    st.subheader("At their own individually-optimal points (RAROC-maximized)")
+    st.divider()
+    st.subheader("Each policy's individually-optimal result, for comparison")
     st.table(pd.DataFrame({
-        "Policy": ["Champion", "Challenger"],
+        "Policy": ["🏆 Champion", "🤖 Challenger"],
         "Approval rate": [f"{champ_best['champion_approval_rate']*100:.1f}%", f"{chall_best['challenger_approval_rate']*100:.1f}%"],
-        "RAROC": [f"{champ_best['champion_raroc']*100:.1f}%", f"{chall_best['challenger_raroc']*100:.1f}%"],
+        "Best possible RAROC": [f"{champ_best['champion_raroc']*100:.1f}%", f"{chall_best['challenger_raroc']*100:.1f}%"],
     }))
 
 # ---------------------------------------------------------------------------
 # Tab 3: Vintage Curve
 # ---------------------------------------------------------------------------
 with tabs[2]:
-    st.subheader("Vintage loss emergence, by issue year")
-    st.markdown(
-        "Cumulative default rate by months-on-book, per origination cohort. Recent "
-        "cohorts (2017-2018) show artificially low default rates purely because they "
-        "haven't had time to mature — not because they're genuinely safer."
+    st.subheader("Are recent loans actually safer, or just too young to have failed yet?")
+    info_callout(
+        "Each line is one year of loans. The line shows what percentage had defaulted "
+        "by a given number of months after origination. A newer line that stops early "
+        "and looks low isn't necessarily safer — it just hasn't had time to mature."
     )
 
     fig = go.Figure()
-    for year in sorted(vintage_curve["issue_year"].unique()):
+    palette = ["#B45309", "#0F766E", "#7C3AED", "#B91C1C", "#0369A1", "#15803D", "#C2410C"]
+    for i, year in enumerate(sorted(vintage_curve["issue_year"].unique())):
         yd = vintage_curve[vintage_curve["issue_year"] == year]
         fig.add_trace(go.Scatter(
             x=yd["month"], y=yd["cumulative_default_rate"] * 100,
-            mode="lines", name=str(year),
+            mode="lines", name=str(year), line=dict(color=palette[i % len(palette)], width=2.5),
         ))
-    fig.update_layout(
-        template="plotly_dark", plot_bgcolor=COLOR_PANEL, paper_bgcolor=COLOR_BG,
-        xaxis_title="Months on book", yaxis_title="Cumulative default rate (%)",
-        legend_title="Issue year", height=450,
-    )
-    st.plotly_chart(fig, use_container_width=True)
+    fig = plotly_layout(fig, height=450, xaxis_title="Months since the loan was issued",
+                         yaxis_title="% of that year's loans that have defaulted")
+    st.plotly_chart(fig, width='stretch')
 
-    st.dataframe(vintage_summ, use_container_width=True)
+    st.subheader("Summary by year")
+    st.dataframe(vintage_summ, width='stretch')
 
 # ---------------------------------------------------------------------------
 # Tab 4: Approval/Return Frontier
 # ---------------------------------------------------------------------------
 with tabs[3]:
-    st.subheader("Approval/return frontier — both policies swept symmetrically")
+    st.subheader("What happens at every possible approval rate?")
+    info_callout(
+        "Each point on a line is one possible policy setting (how strict or loose). "
+        "The star marks each policy's own best spot. Champion's line has a clear peak. "
+        "Challenger's line keeps getting worse the stricter it gets — its 'best' point "
+        "is really just the least-bad option in the range tested, not a true peak."
+    )
+
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=frontier_df["champion_approval_rate"] * 100, y=frontier_df["champion_raroc"] * 100,
-        mode="lines+markers", name="Champion", line=dict(color=COLOR_GOLD),
+        mode="lines+markers", name="Champion", line=dict(color=CHAMPION, width=2.5),
     ))
     fig.add_trace(go.Scatter(
         x=frontier_df["challenger_approval_rate"] * 100, y=frontier_df["challenger_raroc"] * 100,
-        mode="lines+markers", name="Challenger", line=dict(color=COLOR_TEAL),
+        mode="lines+markers", name="Challenger", line=dict(color=CHALLENGER, width=2.5),
     ))
     fig.add_trace(go.Scatter(
         x=[champ_best["champion_approval_rate"] * 100], y=[champ_best["champion_raroc"] * 100],
-        mode="markers", name="Champion best", marker=dict(size=14, color=COLOR_GOLD, symbol="star"),
+        mode="markers", name="Champion's best", marker=dict(size=16, color=CHAMPION, symbol="star"),
     ))
     fig.add_trace(go.Scatter(
         x=[chall_best["challenger_approval_rate"] * 100], y=[chall_best["challenger_raroc"] * 100],
-        mode="markers", name="Challenger best", marker=dict(size=14, color=COLOR_TEAL, symbol="star"),
+        mode="markers", name="Challenger's best", marker=dict(size=16, color=CHALLENGER, symbol="star"),
     ))
-    fig.update_layout(
-        template="plotly_dark", plot_bgcolor=COLOR_PANEL, paper_bgcolor=COLOR_BG,
-        xaxis_title="Approval rate (%)", yaxis_title="RAROC (%)", height=500,
-    )
-    st.plotly_chart(fig, use_container_width=True)
-    st.markdown(
-        "Champion has a genuine interior peak. Challenger's RAROC degrades as it gets "
-        "more selective across the whole tested range — its best point sits at the edge, "
-        "not a real peak. See the Model Validation tab for the full analysis."
-    )
+    fig = plotly_layout(fig, height=500, xaxis_title="% of applicants approved",
+                         yaxis_title="Risk-adjusted return (RAROC, %)")
+    st.plotly_chart(fig, width='stretch')
 
 # ---------------------------------------------------------------------------
 # Tab 5: RAROC Sensitivity
 # ---------------------------------------------------------------------------
 with tabs[4]:
-    st.subheader("Does champion's advantage hold across a plausible range of assumptions?")
-    st.markdown(
-        "Sweeps LGD, opex rate, and capital rate one at a time (holding the others at "
-        "base case), re-optimizing EACH policy's own best point under every tested value."
+    st.subheader("Does Champion's win depend on guessing the right cost assumptions?")
+    info_callout(
+        "Every RAROC number here depends on 3 assumptions this project had to estimate: "
+        "loss severity, servicing cost, and cost of capital. This tests whether Champion "
+        "still wins even if those guesses are wrong, across a wide realistic range."
     )
     sensitivity_df = get_sensitivity(model, train_df, test_df)
     robustness = summarize_robustness(sensitivity_df)
-    st.dataframe(robustness, use_container_width=True)
+    st.dataframe(robustness, width='stretch')
 
-    param = st.selectbox("Show detail for:", ["lgd", "opex_rate", "capital_rate"])
+    param_labels = {"lgd": "Loss severity (LGD)", "opex_rate": "Servicing cost", "capital_rate": "Cost of capital"}
+    param = st.selectbox("See the detail behind one assumption:", list(param_labels.keys()), format_func=lambda x: param_labels[x])
     subset = sensitivity_df[sensitivity_df["swept_parameter"] == param]
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=subset["parameter_value"], y=subset["champion_best_raroc"] * 100,
-                              mode="lines+markers", name="Champion best RAROC", line=dict(color=COLOR_GOLD)))
+                              mode="lines+markers", name="Champion", line=dict(color=CHAMPION, width=2.5)))
     fig.add_trace(go.Scatter(x=subset["parameter_value"], y=subset["challenger_best_raroc"] * 100,
-                              mode="lines+markers", name="Challenger best RAROC", line=dict(color=COLOR_TEAL)))
-    fig.update_layout(
-        template="plotly_dark", plot_bgcolor=COLOR_PANEL, paper_bgcolor=COLOR_BG,
-        xaxis_title=param, yaxis_title="Best RAROC (%)", height=400,
-    )
-    st.plotly_chart(fig, use_container_width=True)
+                              mode="lines+markers", name="Challenger", line=dict(color=CHALLENGER, width=2.5)))
+    fig = plotly_layout(fig, height=400, xaxis_title=param_labels[param], yaxis_title="Best possible RAROC (%)")
+    st.plotly_chart(fig, width='stretch')
 
 # ---------------------------------------------------------------------------
 # Tab 6: Fair-Lending Screen
 # ---------------------------------------------------------------------------
 with tabs[5]:
-    st.markdown(f"""
-    <div class="flag-warning">
-    <b>ILLUSTRATIVE ONLY, NOT EVIDENTIARY.</b> This uses a FABRICATED state-level
-    probability table, not real Census demographic data. It demonstrates the four-fifths
-    parity MECHANISM, not a real disparate-impact finding on this or any real population.
-    </div>
-    """, unsafe_allow_html=True)
+    warn_callout(
+        "This uses MADE-UP group data, not real demographic information — Lending Club's "
+        "public data doesn't include race or ethnicity. This tab shows HOW a fair-lending "
+        "check works, not a real finding about any actual group of people."
+    )
 
     parity_df = get_parity(model, df, train_df, test_df)
-    st.dataframe(parity_df, use_container_width=True)
+    st.dataframe(parity_df, width='stretch')
 
+    st.subheader("Result")
     for _, row in parity_df.iterrows():
         if row["flagged"]:
-            st.markdown(f"🔴 **{row['policy']}**: ratio = {row['four_fifths_ratio']:.3f} — flagged")
+            st.error(f"**{row['policy']}**: ratio = {row['four_fifths_ratio']:.3f} — flagged (below 0.80)")
         else:
-            st.markdown(f"🟢 **{row['policy']}**: ratio = {row['four_fifths_ratio']:.3f} — passes")
+            st.success(f"**{row['policy']}**: ratio = {row['four_fifths_ratio']:.3f} — passes")
 
 # ---------------------------------------------------------------------------
 # Tab 7: Model Validation (embedded doc)
 # ---------------------------------------------------------------------------
 with tabs[6]:
+    st.caption("The full independent-style review of this project — read this before quoting any number from it elsewhere.")
     try:
         validation_text = Path("docs/MODEL_VALIDATION.md").read_text()
         st.markdown(validation_text)
