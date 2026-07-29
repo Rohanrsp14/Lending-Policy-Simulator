@@ -75,6 +75,17 @@ st.markdown(f"""
     [data-testid="stSidebar"] {{ background-color: {CARD_BG} !important; }}
     h1, h2, h3, h4, h5, p, span, div, label {{ color: {TEXT_PRIMARY}; }}
 
+    /* Larger base font sizes across the app -- default Streamlit sizing
+       reads small, especially for body text and captions. */
+    html, body, [class*="css"] {{ font-size: 17px; }}
+    .stMarkdown p, .stMarkdown li {{ font-size: 17px !important; line-height: 1.6; }}
+    [data-testid="stCaptionContainer"], .stCaption {{ font-size: 15px !important; }}
+    [data-testid="stMetricValue"] {{ font-size: 30px !important; }}
+    [data-testid="stMetricLabel"] {{ font-size: 15px !important; }}
+    [data-testid="stDataFrame"] * {{ font-size: 15px !important; }}
+    .stTable table {{ font-size: 16px !important; }}
+    [data-baseweb="tab"] p {{ font-size: 16px !important; }}
+
     /* Tabs */
     [data-baseweb="tab-list"] {{ gap: 4px; border-bottom: 1px solid {CARD_BORDER}; }}
     [data-baseweb="tab"] {{
@@ -97,24 +108,24 @@ st.markdown(f"""
         border-radius: 12px; padding: 24px 28px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
     }}
     .hero-label {{
-        font-size: 13px; font-weight: 700; letter-spacing: 0.04em;
+        font-size: 14px; font-weight: 700; letter-spacing: 0.04em;
         text-transform: uppercase; padding: 4px 10px; border-radius: 6px;
         display: inline-block; margin-bottom: 12px;
     }}
-    .hero-value {{ font-size: 40px; font-weight: 800; line-height: 1.1; }}
-    .hero-sub {{ font-size: 14px; color: {TEXT_MUTED}; margin-top: 4px; }}
+    .hero-value {{ font-size: 42px; font-weight: 800; line-height: 1.1; }}
+    .hero-sub {{ font-size: 15px; color: {TEXT_MUTED}; margin-top: 4px; }}
     .info-callout {{
         background-color: #EFF6FF; border-left: 4px solid #2563EB; border-radius: 6px;
-        padding: 12px 16px; font-size: 14px; color: #1E3A8A; margin-bottom: 16px;
+        padding: 14px 18px; font-size: 16px; color: #1E3A8A; margin-bottom: 16px;
     }}
     .warn-callout {{
         background-color: {FLAG_BG}; border-left: 4px solid {FLAG}; border-radius: 6px;
-        padding: 12px 16px; font-size: 14px; color: {FLAG}; margin-bottom: 16px;
+        padding: 14px 18px; font-size: 16px; color: {FLAG}; margin-bottom: 16px;
     }}
     .finding-banner {{
         background-color: {CARD_BG}; border: 1px solid {CARD_BORDER};
         border-left: 4px solid {CHAMPION}; border-radius: 8px;
-        padding: 18px 22px; margin: 16px 0 24px;
+        padding: 20px 24px; margin: 16px 0 24px; font-size: 17px;
     }}
 </style>
 """, unsafe_allow_html=True)
@@ -141,12 +152,32 @@ def warn_callout(text: str):
 # ---------------------------------------------------------------------------
 # Cached data / model loading
 # ---------------------------------------------------------------------------
-@st.cache_data(show_spinner="Loading cleaned dataset...")
+FULL_DATA_PATH = "data/processed/loans_clean.parquet"
+DEMO_SAMPLE_PATH = "data/processed/loans_demo_sample.parquet"
+
+
+@st.cache_data(show_spinner="Loading dataset...")
 def load_data():
-    df = pd.read_parquet("data/processed/loans_clean.parquet")
+    """
+    Loads the full dataset if present (local dev, with the real Lending
+    Club file downloaded). Falls back to the committed ~100K-loan demo
+    sample if not (the public deployment -- the full dataset is too large
+    and its redistribution terms are unclear, so it isn't committed).
+    Returns (df, is_sample: bool) so the UI can show an honest banner.
+    """
+    if Path(FULL_DATA_PATH).exists():
+        df = pd.read_parquet(FULL_DATA_PATH)
+        is_sample = False
+    elif Path(DEMO_SAMPLE_PATH).exists():
+        df = pd.read_parquet(DEMO_SAMPLE_PATH)
+        is_sample = True
+    else:
+        raise FileNotFoundError(
+            f"Neither {FULL_DATA_PATH} nor {DEMO_SAMPLE_PATH} found. See README.md setup."
+        )
     df = parse_issue_date(df)
     df = prepare_features(df)
-    return df
+    return df, is_sample
 
 
 @st.cache_data(show_spinner="Splitting train/test by issue date...")
@@ -204,7 +235,7 @@ def plotly_layout(fig, height=450, xaxis_title="", yaxis_title=""):
 # ---------------------------------------------------------------------------
 # Load everything
 # ---------------------------------------------------------------------------
-df = load_data()
+df, is_sample = load_data()
 train_df, test_df = get_split(df)
 model = get_model(train_df)
 frontier_df = get_frontier(model, train_df, test_df)
@@ -223,6 +254,16 @@ st.caption(
     "Lending Club loan-level data. **Portfolio/analytical project — not a production "
     "underwriting system.**"
 )
+
+if is_sample:
+    st.markdown(f"""
+    <div class="warn-callout">
+    📎 This public demo runs on a random <b>{len(df):,}-loan sample</b> of the full
+    685,806-loan dataset analyzed in <b>docs/MODEL_VALIDATION.md</b>. Numbers here will
+    differ slightly from the full analysis — the full-dataset results are what every
+    written finding in this project is actually based on.
+    </div>
+    """, unsafe_allow_html=True)
 
 st.markdown(f"""
 <div class="finding-banner">
