@@ -108,14 +108,18 @@ Lending Club's data has no protected-class field and no borrower name (see `CLAU
 across every policy variant (champion, volume-matched challenger, RAROC-optimized
 challenger) rather than just one — that structure is correct and reusable.
 
-### 7. Ongoing monitoring — does not exist yet in this project
+### 7. Ongoing monitoring — built (`src/monitor.py`), on a real proxy for "live"
 
-**New build required.** Everything in this project is a one-time backtest. A real deployment
-needs a population-stability index (PSI) monitor comparing live incoming applicant/loan
-characteristics against the training population, tracked over time — the same pattern already
-proven in Credit-Risk-Monitor's `monitor.py`. This is the one piece of the "real deployment"
-picture with zero code in this project yet; everything else above is "adapt what exists,"
-this one is "build new."
+**Built, using a real proxy for live monitoring.** This project has no actual production
+stream, so `src/monitor.py` demonstrates PSI drift monitoring on the closest real substitute
+available: the time-based train (pre-2015) vs. test (2015+) split already used throughout
+this project. This is a genuine before/after population comparison on real data, not a
+synthetic demonstration — the same pattern proven in Credit-Risk-Monitor's `monitor.py`.
+
+**What changes for a real deployment**: swap the "test" population for a genuinely live,
+rolling window of recent applicants, scored on a recurring cadence (daily/weekly/monthly)
+against the original training population as the fixed baseline — the PSI math itself doesn't
+change, only the cadence and what counts as "the population being checked."
 
 ---
 

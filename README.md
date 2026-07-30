@@ -49,7 +49,7 @@ Built incrementally via small, sprint-sized PRs rather than one large drop:
 - [x] **Path to Production doc** (`docs/PATH_TO_PRODUCTION.md`): stage-by-stage map of what's reusable methodology vs. what needs to change for a real deployment, plus the governance requirements a real production consideration would need.
 - [x] **PR 5 — Streamlit dashboard** (`dashboard/app.py`): the clickable frontend — champion vs. challenger (interactive), vintage curve, approval/return frontier, RAROC sensitivity, fair-lending screen, and the embedded Model Validation report, all in one place.
 - [x] **PR 6 — Deploy**: live at [lending-policy-simulator.streamlit.app](https://lending-policy-simulator.streamlit.app).
-- [ ] PSI drift monitoring
+- [x] **PSI drift monitoring** (`src/monitor.py`): compares train (pre-2015) vs. test (2015+) populations, a real drift check using this project's own time-based split — not a synthetic demonstration.
 
 ## Dataset
 
