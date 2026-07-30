@@ -1,10 +1,10 @@
 # Lending Policy Simulator
 
 A champion/challenger consumer-lending policy simulator built on real, public **Lending Club**
-loan-level data, scoped to a near-prime/subprime population representative of a Regional
-Finance-tier installment lender. Computes a full P&L waterfall to risk-adjusted return
-(RAROC), vintage loss emergence, an approval/return frontier, and a fair-lending parity
-screen — deployed as a Streamlit dashboard.
+loan-level data, scoped to a near-prime/subprime population representative of a consumer
+installment lender. Computes a full P&L waterfall to risk-adjusted return (RAROC), vintage
+loss emergence, an approval/return frontier, and a fair-lending parity screen. Deployed as a
+Streamlit dashboard.
 
 **This is a portfolio/analytical project, not a production underwriting system.** See
 [CLAUDE.md](CLAUDE.md) for full data provenance and project rules.
@@ -22,11 +22,11 @@ screen — deployed as a Streamlit dashboard.
 </p>
 
 **Key finding (read before quoting any RAROC number from this project):** the champion
-(a simple FICO cutoff) has a genuine RAROC-maximizing point; the challenger (a logistic
+(a simple FICO cutoff) has a genuine RAROC-maximizing point. The challenger (a logistic
 regression, AUC 0.64) does not clearly beat it once revenue mix and realistic cost
-assumptions are accounted for — real predictive power did not translate into real
-economic value here. See [docs/MODEL_VALIDATION.md](docs/MODEL_VALIDATION.md) for the
-full independent-style review, including every issue found and fixed along the way, and
+assumptions are accounted for. Real predictive power did not translate into real economic
+value here. See [docs/MODEL_VALIDATION.md](docs/MODEL_VALIDATION.md) for the full
+independent-style review, including every issue found and fixed along the way, and
 [docs/PATH_TO_PRODUCTION.md](docs/PATH_TO_PRODUCTION.md) for exactly what would need to
 change, stage by stage, to move any of this toward a real deployment.
 
@@ -34,37 +34,36 @@ change, stage by stage, to move any of this toward a real deployment.
 
 Built incrementally via small, sprint-sized PRs rather than one large drop:
 
-- [x] **PR 1 — Data ingestion**: load, filter, clean, and label the raw Lending Club export.
-- [x] **PR 2 — Champion/challenger model + eval harness**: rule-based cutoff vs. trained PD model, time-based split, RAROC on realized outcomes.
-- [x] **PR 2.1 — Volume-matched calibration + expanded risk features**: fixes the reject-inference finding from running PR 2 against real data.
-- [x] **PR 2.2 — Amortized revenue, more features, platform-maturity scope**: fixes 3 limitations found reviewing PR 2.1's real results.
-- [x] **PR 2.3 — RAROC annualization fix**: fixes a real bug (RAROC >100%) surfaced by running PR 2.2 against real data.
-- [x] **PR 2.4 — RAROC-optimized threshold selection**: fixes a real finding — volume-matching isn't the same as RAROC-optimal.
-- [x] **PR 2.5 — Real time-to-default data**: adds last_pymnt_d + months_on_book, needed for a genuine (not synthetic) vintage curve.
-- [x] **PR 3 — Vintage loss curve + symmetric approval/return frontier**: real time-to-default vintage analysis, plus a frontier that sweeps BOTH policies fairly.
-- [x] **PR 3.1 — Pre-pricing risk model**: removes int_rate_frac as a challenger feature — a real methodological fix found reviewing PR 3's frontier result.
-- [x] **Model Validation Report** (`docs/MODEL_VALIDATION.md`): independent-style review of everything built so far — conceptual soundness, discriminatory power, outcomes analysis, a full issue/remediation log, and an explicit not-yet-production-ready verdict.
+- [x] **PR 1: Data ingestion**: load, filter, clean, and label the raw Lending Club export.
+- [x] **PR 2: Champion/challenger model + eval harness**: rule-based cutoff vs. trained PD model, time-based split, RAROC on realized outcomes.
+- [x] **PR 2.1: Volume-matched calibration + expanded risk features**: fixes the reject-inference finding from running PR 2 against real data.
+- [x] **PR 2.2: Amortized revenue, more features, platform-maturity scope**: fixes 3 limitations found reviewing PR 2.1's real results.
+- [x] **PR 2.3: RAROC annualization fix**: fixes a real bug (RAROC over 100%) surfaced by running PR 2.2 against real data.
+- [x] **PR 2.4: RAROC-optimized threshold selection**: fixes a real finding, that volume-matching isn't the same as RAROC-optimal.
+- [x] **PR 2.5: Real time-to-default data**: adds last_pymnt_d and months_on_book, needed for a genuine (not synthetic) vintage curve.
+- [x] **PR 3: Vintage loss curve + symmetric approval/return frontier**: real time-to-default vintage analysis, plus a frontier that sweeps both policies fairly.
+- [x] **PR 3.1: Pre-pricing risk model**: removes int_rate_frac as a challenger feature, a real methodological fix found reviewing PR 3's frontier result.
+- [x] **Model Validation Report** (`docs/MODEL_VALIDATION.md`): independent-style review of everything built so far, covering conceptual soundness, discriminatory power, outcomes analysis, a full issue/remediation log, and an explicit not-yet-production-ready verdict.
 - [x] **RAROC Sensitivity Analysis** (`src/sensitivity.py`): stress-tests whether champion's RAROC advantage over challenger holds across a plausible range of the LGD/opex/capital assumptions.
-- [x] **PR 4 — Fair-lending parity screen** (`src/fair_lending.py`): geography-only, BISG-style illustrative proxy + four-fifths ratio, run across all three policies. **Explicitly illustrative, not evidentiary** — see CLAUDE.md.
+- [x] **PR 4: Fair-lending parity screen** (`src/fair_lending.py`): geography-only, BISG-style illustrative proxy plus four-fifths ratio, run across all three policies. **Explicitly illustrative, not evidentiary.** See CLAUDE.md.
 - [x] **Path to Production doc** (`docs/PATH_TO_PRODUCTION.md`): stage-by-stage map of what's reusable methodology vs. what needs to change for a real deployment, plus the governance requirements a real production consideration would need.
-- [x] **PR 5 — Streamlit dashboard** (`dashboard/app.py`): the clickable frontend — champion vs. challenger (interactive), vintage curve, approval/return frontier, RAROC sensitivity, fair-lending screen, and the embedded Model Validation report, all in one place.
-- [x] **PR 6 — Deploy**: live at [lending-policy-simulator.streamlit.app](https://lending-policy-simulator.streamlit.app).
-- [x] **PSI drift monitoring** (`src/monitor.py`): compares train (pre-2015) vs. test (2015+) populations, a real drift check using this project's own time-based split — not a synthetic demonstration.
+- [x] **PR 5: Streamlit dashboard** (`dashboard/app.py`): the clickable frontend. Champion vs. challenger (interactive), vintage curve, approval/return frontier, RAROC sensitivity, fair-lending screen, and the embedded Model Validation report, all in one place.
+- [x] **PR 6: Deploy**: live at [lending-policy-simulator.streamlit.app](https://lending-policy-simulator.streamlit.app).
+- [x] **PSI drift monitoring** (`src/monitor.py`): compares train (pre-2015) vs. test (2015+) populations, a real drift check using this project's own time-based split, not a synthetic demonstration.
 
 ## Dataset
 
 | Dataset | Description | Source |
 |---|---|---|
-| Lending Club Accepted Loans | Loan-level consumer installment lending data, 2007–2020 | Commonly distributed via Kaggle: `wordsforthewise/lending-club` (search "Lending Club Loan Data" if that slug changes) |
+| Lending Club Accepted Loans | Loan-level consumer installment lending data, 2007-2020 | Commonly distributed via Kaggle: `wordsforthewise/lending-club` (search "Lending Club Loan Data" if that slug changes) |
 
 Not included in this repo (large file, license terms require direct download). Download the
 accepted-loans CSV and place it at `data/raw/accepted_2007_to_2018Q4.csv` (or update the path
 in `.env`).
 
-**v1 scope**: filtered to loan grades **C–F** (near-prime/subprime, proxy for the Regional
-Finance lending tier) and to loans with a matured, known outcome (`Fully Paid` or
-`Charged Off`/`Default` only — see [CLAUDE.md](CLAUDE.md) for why `Current`/`Issued`/`Late`
-loans are excluded).
+**v1 scope**: filtered to loan grades **C-F** (near-prime/subprime) and to loans with a
+matured, known outcome (`Fully Paid` or `Charged Off`/`Default` only). See
+[CLAUDE.md](CLAUDE.md) for why `Current`/`Issued`/`Late` loans are excluded.
 
 ## Folder structure
 
@@ -125,17 +124,17 @@ streamlit run dashboard/app.py
 
 Opens at `http://localhost:8501`. First load trains the challenger model and computes the
 frontier/vintage/sensitivity/parity views once, then caches them for the rest of the
-session — the sensitivity sweep in particular takes a bit the first time, by design (it's a
-real computation, not instant).
+session. The sensitivity sweep in particular takes a bit the first time, by design, since
+it's a real computation, not an instant one.
 
 ## Deploying (public demo)
 
-The full 685,806-loan dataset isn't committed to this repo (too large, and Lending Club's
-redistribution terms don't clearly cover republishing it at that scale). The public
-deployment runs on a smaller, clearly-labeled ~100K-loan random sample instead — the
+The full 685,806-loan dataset isn't committed to this repo. It's too large, and Lending
+Club's redistribution terms don't clearly cover republishing it at that scale. The public
+deployment runs on a smaller, clearly-labeled ~100K-loan random sample instead. The
 dashboard shows an explicit banner when it's running on the sample, so this is never silent.
-**Every finding in `docs/MODEL_VALIDATION.md` is based on the full dataset, run locally** —
-the sample exists only so the public demo is interactive.
+**Every finding in `docs/MODEL_VALIDATION.md` is based on the full dataset, run locally.**
+The sample exists only so the public demo is interactive.
 
 To generate the demo sample (run locally, where you have the full dataset):
 
@@ -143,7 +142,7 @@ To generate the demo sample (run locally, where you have the full dataset):
 python -m scripts.create_demo_sample
 ```
 
-This writes `data/processed/loans_demo_sample.parquet` — small enough to commit (a
+This writes `data/processed/loans_demo_sample.parquet`, small enough to commit (a
 `.gitignore` exception allows this one specific file through). Commit and push it:
 
 ```bash
@@ -155,7 +154,7 @@ git push
 Then deploy on [Streamlit Community Cloud](https://share.streamlit.io):
 1. Sign in with GitHub, click "New app"
 2. Select this repo, branch `main`, and `dashboard/app.py` as the entry point
-3. Deploy — the app will use the committed sample automatically, since the full dataset
+3. Deploy. The app will use the committed sample automatically, since the full dataset
    won't be present on Streamlit Cloud's filesystem (the fallback logic in
    `dashboard/app.py::load_data()` handles this)
 4. Update the "Live demo" link at the top of this README with the deployed URL
@@ -173,28 +172,29 @@ pytest
 Each feature ships as its own small PR against `main`, sized like a real sprint ticket:
 
 1. Branch off `main`: `git checkout -b feature/<short-name>`
-2. Build the increment + its tests.
+2. Build the increment and its tests.
 3. `pytest` passes locally, CI passes on push.
-4. Open a PR with a short description of what changed and why — see PR 1's description
+4. Open a PR with a short description of what changed and why. See PR 1's description
    below as the template for future ones.
 5. Merge once reviewed.
 
 ### PR 1 description (data ingestion)
 
-**What**: Adds `src/data_loader.py` — loads the raw Lending Club CSV, filters to grades C–F
+**What**: Adds `src/data_loader.py`. Loads the raw Lending Club CSV, filters to grades C-F
 and matured outcomes only, parses `term`/`int_rate`/`emp_length` into numeric fields, derives
 a binary default label, dedupes, and writes a cleaned Parquet file plus a structured JSONL
 run log (row counts at every filter step).
 
-**Why**: This is the foundation every later PR (RAROC model, vintage curve, frontier, fair-lending
-screen, dashboard) reads from — locking the scope and cleaning logic first, with tests, avoids
-every downstream PR quietly re-deriving its own inconsistent version of "clean data."
+**Why**: This is the foundation every later PR (RAROC model, vintage curve, frontier,
+fair-lending screen, dashboard) reads from. Locking the scope and cleaning logic first, with
+tests, avoids every downstream PR quietly re-deriving its own inconsistent version of "clean
+data."
 
 **Tests**: `tests/test_data_loader.py` uses a small in-memory synthetic CSV fixture (not the
 real 12GB+ file) so the cleaning/parsing/filtering logic is verified deterministically and
 fast, independent of whether the real data file is present.
 
-**Out of scope for this PR**: model logic, RAROC calculation, dashboard — those are PR 2+.
+**Out of scope for this PR**: model logic, RAROC calculation, dashboard. Those are PR 2+.
 
 ### PR 2 description (champion/challenger model + eval harness)
 
@@ -202,45 +202,45 @@ fast, independent of whether the real data file is present.
 prep) and `src/models.py` (champion = rule-based FICO cutoff, no model; challenger = trained
 logistic-regression PD model; RAROC computation; AUC/Gini/KS eval).
 
-**Why**: Champion vs. challenger here means the real, industry-standard thing — the current
-rule-based policy vs. a proposed statistical improvement — not two competing model types
+**Why**: Champion vs. challenger here means the real, industry-standard thing: the current
+rule-based policy vs. a proposed statistical improvement, not two competing model types
 racing each other (that comparison already exists in Credit-Risk-Monitor). RAROC for both
 policies is computed from **realized, historical outcomes** on a held-out time-based test
-set, not from either policy's own predicted probability — this makes the two directly
+set, not from either policy's own predicted probability. This makes the two directly
 comparable on the same real ground truth rather than trusting either one's self-assessed risk.
 
 **Key decisions locked in this PR**:
-- Time-based split is mandatory (`issue_d` cutoff date), never random — loan performance and
-  applicant mix both drift 2007–2018, a random split would leak future information into training.
+- Time-based split is mandatory (`issue_d` cutoff date), never random. Loan performance and
+  applicant mix both drift 2007-2018, and a random split would leak future information into training.
 - Champion's FICO cutoff (`CHAMPION_FICO_CUTOFF = 660`) is a stated, documented assumption
-  representing plausible current practice — not derived from any real institution's actual
+  representing plausible current practice, not derived from any real institution's actual
   policy. Flagged as an ask-first item in `CLAUDE.md` if this needs to change.
-- RAROC loss is computed from the real `defaulted` outcome and real `int_rate_frac`/`loan_amnt`
-  — no synthetic or model-estimated numbers feed the historical P&L.
+- RAROC loss is computed from the real `defaulted` outcome and real `int_rate_frac`/`loan_amnt`.
+  No synthetic or model-estimated numbers feed the historical P&L.
 
 **Tests**: `tests/test_features.py` and `tests/test_models.py`, both against a synthetic
-fixture (`tests/conftest.py`) with a real, learnable FICO/default relationship — verifies the
+fixture (`tests/conftest.py`) with a real, learnable FICO/default relationship. Verifies the
 model actually trains, the time split has no overlap, and RAROC/eval metrics behave correctly
 at the boundaries (e.g. zero approvals, tighter cutoff never approves more).
 
 **Out of scope for this PR**: vintage curve, approval/return frontier, fair-lending screen,
-dashboard — those are PR 3+.
+dashboard. Those are PR 3+.
 
 ### PR 2.1 description (volume-matched calibration + expanded risk features)
 
 **What**: Running PR 2 against the real 708,134-loan dataset surfaced a real finding: a fixed
 FICO cutoff of 660 approved 100% of the held-out test set, because this dataset contains only
-Lending Club's already-accepted loans — the population was already screened by LC's own real
+Lending Club's already-accepted loans. The population was already screened by LC's own real
 underwriting before we ever see it (a known credit-modeling limitation called **reject
 inference**, documented in `CLAUDE.md`). This PR fixes the comparison to be meaningful despite
 that: champion and challenger are now both calibrated to the same target approval rate (85%
-by default) on the training population — a swap-set analysis (same volume, different mix)
+by default) on the training population, a swap-set analysis (same volume, different mix)
 rather than an arbitrary absolute threshold. Also adds five real risk features already present
 in the raw data (`revol_util`, `delinq_2yrs`, `open_acc`, `pub_rec`, `inq_last_6mths`) to
 strengthen the challenger model's ranking quality.
 
 **Why**: An arbitrary fixed cutoff either over- or under-states the comparison depending on
-where a given population's score distribution happens to sit — calibrating both policies to
+where a given population's score distribution happens to sit. Calibrating both policies to
 the same approval volume is the standard real-world "swap set" framing and makes the RAROC
 delta a genuine reflection of selection quality, not an artifact of an arbitrary number.
 
@@ -257,51 +257,50 @@ both are volume-matched.
 1. `src/models.py::amortized_interest` replaces a flat `loan_amnt * rate * fudge_factor`
    revenue approximation with a real fixed-payment installment amortization formula.
    Documented limitation: still assumes full-term repayment, which overstates revenue on
-   loans that default early — intentionally deferred to PR 3's vintage/time-on-book work,
+   loans that default early. Intentionally deferred to PR 3's vintage/time-on-book work,
    not silently ignored.
-2. Adds `home_ownership`, `verification_status`, `mort_acc`, `total_acc` — real fields
-   already in the raw data — to strengthen the challenger model (AUC was a modest 0.63).
-3. Scopes data to loans issued 2012 or later (`MIN_ISSUE_YEAR` in `src/data_loader.py`) —
+2. Adds `home_ownership`, `verification_status`, `mort_acc`, `total_acc`, real fields
+   already in the raw data, to strengthen the challenger model (AUC was a modest 0.63).
+3. Scopes data to loans issued 2012 or later (`MIN_ISSUE_YEAR` in `src/data_loader.py`).
    Lending Club's 2007-2011 originations were a small, immature platform with materially
-   different underwriting than the post-2012 period; mixing regimes added noise.
+   different underwriting than the post-2012 period, and mixing regimes added noise.
 
-**Why**: An interviewer reviewing the RAROC math would catch the amortization gap
-immediately, and the AUC/regime-mixing issues were visible the moment PR 2.1 ran against
-real data — better to name and fix these now than present numbers that don't hold up to a
-second look.
+**Why**: A careful review of the RAROC math would catch the amortization gap immediately,
+and the AUC/regime-mixing issues were visible the moment PR 2.1 ran against real data. Better
+to name and fix these now than present numbers that don't hold up to a second look.
 
-**Tests**: 4 new tests (32 total) — amortized interest validated against a manually
+**Tests**: 4 new tests (32 total). Amortized interest validated against a manually
 computed example, confirms longer terms produce more total interest, confirms RAROC now
 uses the amortized figure, and confirms the platform-maturity filter excludes pre-2012 loans.
 
 **Out of scope for this PR**: fully correcting revenue for early-default truncation (needs
 per-loan time-to-default, which is PR 3's job) and any model-type change (still logistic
-regression, by design — see PR 2's rationale for why this stays a rules-vs-model comparison
+regression, by design; see PR 2's rationale for why this stays a rules-vs-model comparison
 rather than a model-vs-model one).
 
-### PR 2.3 description (RAROC annualization fix — a real bug)
+### PR 2.3 description (RAROC annualization fix, a real bug)
 
 **What**: Running PR 2.2 against the real dataset produced RAROC of 201.5% (champion) and
-154.3% (challenger) — not believable numbers, and a real bug rather than a documented
+154.3% (challenger), not believable numbers, and a real bug rather than a documented
 limitation. `amortized_interest()` (added in PR 2.2) returns full-loan-life revenue totals
 (3-5 years' worth), but `capital` and `opex` are one-time charges meant to represent an
-*annual* basis — the standard RAROC convention. Comparing a multi-year total against a
+*annual* basis, the standard RAROC convention. Comparing a multi-year total against a
 one-year capital base is a unit mismatch, and it's what produced RAROC over 100%.
 
 **Fix**: `compute_raroc` now divides both revenue and realized loss by each loan's own
 term-in-years before summing, putting every quantity feeding RAROC on the same annual basis
 as the capital charge. `loss_rate` in the output remains a simple lifetime figure (unannualized)
-since that's the more intuitive way to read "what fraction of approved balance was lost."
+since that's the more intuitive way to read what fraction of approved balance was lost.
 
-**Why this is worth naming explicitly rather than quietly patching**: this is exactly the kind
-of math error a real risk team's model-validation review would catch before signing off on a
-RAROC number — catching and documenting it here is a stronger interview story than either
-hiding it or never having made it in the first place.
+**Why this is worth naming explicitly rather than quietly patching**: this is exactly the
+kind of math error a real model-risk review would catch before signing off on a RAROC
+number. Catching and documenting it here, rather than hiding it, is the whole point of the
+issue/remediation log in `docs/MODEL_VALIDATION.md`.
 
 **Tests**: updated the two PR 2.2 revenue/loss tests to expect annualized figures, and added
-`test_compute_raroc_is_annualized_not_lifetime_total` as an explicit regression guard — asserts
-RAROC stays under 100% on the synthetic fixture, so this specific bug class can't silently
-reappear.
+`test_compute_raroc_is_annualized_not_lifetime_total` as an explicit regression guard. It
+asserts RAROC stays under 100% on the synthetic fixture, so this specific bug class can't
+silently reappear.
 
 **Out of scope for this PR**: still PR 3+ for vintage curve, frontier, fair-lending, dashboard.
 
@@ -311,7 +310,7 @@ reappear.
 volume-matched challenger had a lower loss rate than champion (15.30% vs. 17.31%) but a
 *worse* RAROC (-7.3% vs. 0.1%). Diagnosis (checking approved-population averages) confirmed
 why: the challenger's approved set had a lower average interest rate, smaller average loan
-amount, and shorter average term than champion's — a PD model that reduces default risk will
+amount, and shorter average term than champion's. A PD model that reduces default risk will
 naturally tend to decline higher-rate (higher-revenue) loans too, since Lending Club's own
 rate assignment already reflects their risk view. Optimizing a ranking metric (PD) isn't the
 same as optimizing the real economic objective (RAROC).
@@ -321,17 +320,16 @@ the training set (no leakage), and `calibrate_pd_threshold_for_raroc` selects th
 that directly maximizes RAROC rather than matching a volume target.
 `challenger_decision_raroc_optimized` applies it. `scripts/run_evaluation.py` now prints all
 three policies side by side: champion, volume-matched challenger, and RAROC-optimized
-challenger — so the improvement (or lack of one) from actually optimizing for the right
+challenger, so the improvement (or lack of one) from actually optimizing for the right
 objective is visible directly.
 
-**Why this matters for the interview story**: this is a genuinely sophisticated point —
-"a model that improves default prediction doesn't automatically improve risk-adjusted return
-if it disproportionately declines your highest-margin loans along with the risky ones; you
-have to calibrate against the actual economic objective, not just a ranking metric." Finding
-and fixing this, rather than presenting the volume-matched number as the final answer, is a
-stronger result than either outcome alone.
+**Why this matters**: a model that improves default prediction doesn't automatically
+improve risk-adjusted return if it disproportionately declines the highest-margin loans
+along with the risky ones. You have to calibrate against the actual economic objective, not
+just a ranking metric. Finding and fixing this, rather than presenting the volume-matched
+number as the final answer, produces a more defensible result than either outcome alone.
 
-**Tests**: 3 new tests (36 total) — verifies the sweep returns the expected structure,
+**Tests**: 3 new tests (36 total). Verifies the sweep returns the expected structure,
 confirms `calibrate_pd_threshold_for_raroc` actually selects the sweep's best row, and
 confirms the RAROC-optimized threshold never underperforms volume-matching on the population
 it was optimized on (a built-by-construction guarantee, checked as a regression test).
@@ -340,58 +338,58 @@ it was optimized on (a built-by-construction guarantee, checked as a regression 
 
 ### PR 2.5 description (real time-to-default data)
 
-**What**: Adds `last_pymnt_d` and derives `months_on_book` in `src/data_loader.py` — a real,
+**What**: Adds `last_pymnt_d` and derives `months_on_book` in `src/data_loader.py`, a real,
 data-derived proxy for time-to-default (Charged Off/Default) or time-to-payoff (Fully Paid).
 
 **Why**: PR 1 scoped the dataset to matured, known-outcome loans only, which meant every loan
-already has a terminal outcome — but no field capturing *when* it occurred, which a genuine
-vintage curve needs. Without this, PR 3 would have had to fall back on an illustrative/
+already has a terminal outcome, but no field capturing *when* it occurred, which a genuine
+vintage curve needs. Without this, PR 3 would have had to fall back on an illustrative or
 synthetic maturation curve instead of real data.
 
-**Tests**: 4 new tests (38 total) — months_on_book verified against a manual example, and a
+**Tests**: 4 new tests (38 total). months_on_book verified against a manual example, and a
 new data-quality filter (drops rows where `last_pymnt_d` predates `issue_d`) confirmed working.
 
 ### PR 3 description (vintage curve + symmetric approval/return frontier)
 
-**What**: `src/vintage.py` computes cumulative default rate by months-on-book for each issue-
+**What**: `src/vintage.py` computes cumulative default rate by months-on-book for each issue
 year vintage, using real `months_on_book` data, plus a quick-read `vintage_summary`.
 `src/frontier.py` sweeps a range of target approval rates and computes **both** champion's
 FICO cutoff and challenger's PD threshold at each point (calibrated on train, applied to
-test) — fixing the asymmetry flagged after PR 2.4, where only challenger got a full
+test), fixing the asymmetry flagged after PR 2.4, where only challenger got a full
 RAROC-optimization sweep.
 
 **Why issue year, not grade, for vintage**: a vintage curve is fundamentally a time-based
-question ("are recent originations riskier than older ones?"). Grade is already a risk
-segmentation handled elsewhere in this project; slicing by grade here would just repeat that.
+question (are recent originations riskier than older ones?). Grade is already a risk
+segmentation handled elsewhere in this project, so slicing by grade here would just repeat that.
 
-**Why the frontier needed to be symmetric**: a real "approval/return frontier" has to let
-every policy explore its own tradeoff space — evaluating champion at one fixed point while
+**Why the frontier needed to be symmetric**: a real approval/return frontier has to let
+every policy explore its own tradeoff space. Evaluating champion at one fixed point while
 sweeping challenger's isn't a fair comparison, and would have made any conclusion about which
 policy is "better" unreliable.
 
-**Tests**: 11 new tests (49 total) — vintage curve validated against a hand-checkable
+**Tests**: 11 new tests (49 total). Vintage curve validated against a hand-checkable
 4-loan example (exact cumulative rates at known default months), monotonicity checked,
 frontier confirmed to actually sweep both policies (not just one), and `best_point`
 verified to select each policy's true RAROC-maximizing row.
 
-**Out of scope for this PR**: fair-lending parity screen and the Streamlit dashboard — PR 4
+**Out of scope for this PR**: fair-lending parity screen and the Streamlit dashboard. PR 4
 and PR 5.
 
-### PR 3.1 description (pre-pricing risk model — removed int_rate_frac from challenger features)
+### PR 3.1 description (pre-pricing risk model, removed int_rate_frac from challenger features)
 
 **What**: Removes `int_rate_frac` from `NUMERIC_FEATURES` in `src/features.py`. The
 challenger is retrained without Lending Club's own assigned interest rate as an input.
 
 **Why**: Running PR 3 against real data showed challenger's RAROC getting *worse* as it
-became more selective — the opposite of champion's pattern. Root cause: rate was both a
-model input (predicting default) and the primary driver of revenue in RAROC — a model
-partly re-deriving "the rate" as its risk signal, then declining high-rate loans, is a
+became more selective, the opposite of champion's pattern. Root cause: rate was both a
+model input (predicting default) and the primary driver of revenue in RAROC. A model
+partly re-deriving "the rate" as its risk signal, then declining high-rate loans, produces a
 circular result, not a genuine economic finding. Real underwriting practice keeps
 approve/decline decisions on pre-pricing risk factors, assigning price afterward.
 
 **Note**: `int_rate_frac` remains in the dataset and is still used for the RAROC revenue
-calculation itself — it's removed only as a challenger MODEL INPUT, not from the data.
+calculation itself. It's removed only as a challenger model input, not from the data.
 
 **Tests**: all 49 existing tests still pass unchanged (this is a feature-set change, not a
-new function) — confirms nothing downstream hardcoded an assumption about the feature list's
+new function), confirming nothing downstream hardcoded an assumption about the feature list's
 exact contents.
