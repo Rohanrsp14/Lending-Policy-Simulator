@@ -69,6 +69,57 @@ so `scripts/run_sensitivity.py` now runs a 100-point grid (vs. the original 25) 
 reports whether the optimum approval rate is identical across every sweep at the finer
 resolution too, rather than leaving that as an unverified assumption.
 
+## PSI drift monitoring (the last named gap, now closed)
+
+`src/monitor.py` implements Population Stability Index (PSI) monitoring -- the standard
+metric for checking whether a population being scored today still resembles the population
+a model was trained on. This project has no live production stream, but it has a genuine
+before/after split already: the time-based train/test split (pre-2015 vs. 2015+). Comparing
+those two populations' feature distributions is a real drift check on real data, not a
+synthetic demonstration -- if the test population has drifted meaningfully from train, that's
+itself part of the explanation for the model's modest AUC (`docs/MODEL_VALIDATION.md`
+Section 5), not a separate, disconnected finding.
+
+Standard industry thresholds: PSI < 0.10 (stable), 0.10-0.25 (moderate shift, monitor),
+>= 0.25 (significant shift, investigate). Handles both numeric features (quantile-bucketed
+from the baseline/train distribution, so bucketing doesn't depend on the population being
+checked) and categorical features (bucketed by category directly, including handling a
+category appearing in one period but not the other -- itself a real form of drift).
+
+## PR 6: Deploy — demo sample + fallback logic
+
+The full 685,806-loan dataset isn't committed (too large, and Lending Club's redistribution
+terms don't clearly cover republishing it at that scale for a public deployment). Instead:
+`scripts/create_demo_sample.py` creates a random ~100K-loan sample (fixed seed, reproducible),
+small enough to commit via a `.gitignore` exception. `dashboard/app.py::load_data()` tries the
+full dataset first (local dev) and falls back to the committed sample if it's not present
+(the public deployment) — the dashboard shows an explicit banner whenever it's running on the
+sample, never silently. **Every finding in `docs/MODEL_VALIDATION.md` is based on the full
+dataset** — the sample exists only so the public demo is interactive; this distinction is
+stated in the README's deploy section, not just in code comments.
+
+## Dashboard redesign: forced theme via CSS, custom metric cards
+
+The previous fix relied on `.streamlit/config.toml` for light theming, but this proved
+unreliable -- some environments auto-detect system/browser dark-mode preference and override
+it, and `st.metric`'s built-in styling has very limited contrast control regardless. Fixed by:
+(1) injecting CSS that directly targets Streamlit's actual component selectors
+(`data-testid` attributes) with `!important`, forcing the light theme regardless of
+system/browser detection; (2) replacing `st.metric` for the "hero" champion/challenger
+numbers with custom-built HTML card components (`hero_card()`), which give full styling
+control and don't depend on Streamlit's theme detection working correctly at all.
+
+## Dashboard rework: proper theming + plain-language framing
+
+The first version of `dashboard/app.py` used CSS injection to force a dark theme, which
+produced inconsistent contrast against Streamlit's own default widget styling and was hard
+to read. Fixed by switching to Streamlit's actual theme system (`.streamlit/config.toml`,
+`base="light"`) -- this themes every native widget consistently, not just custom divs. Also
+rewrote every tab to lead with a plain-language "what you're looking at and why it matters"
+explainer before any chart or number, and swapped technical labels (RAROC, PD threshold,
+FICO cutoff) for plain-language equivalents in the UI copy (numbers/technical terms remain
+in the underlying data, just not the primary label a non-technical viewer sees first).
+
 ## PR 5: Streamlit dashboard
 
 `dashboard/app.py` is the clickable frontend for everything built in `src/` — the piece a
